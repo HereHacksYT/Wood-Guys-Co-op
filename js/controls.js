@@ -41,27 +41,27 @@ function setupJoystick(zoneId, stickId, callback) {
 }
 
 export function handleControls(p1Body, p2Body) {
-    const speed = 6;
-    const jumpForce = 7;
+    const speed = 7;
+    const jumpForce = 8;
 
-    // Oyuncu 1 Hareket
+    // Oyuncu 1
     if (inputs.p1.moveX !== 0) p1Body.velocity.x = inputs.p1.moveX * speed;
     else if (activeKeys['KeyA']) p1Body.velocity.x = -speed;
     else if (activeKeys['KeyD']) p1Body.velocity.x = speed;
     else p1Body.velocity.x = 0;
 
-    if ((inputs.p1.jump || activeKeys['KeyW']) && Math.abs(p1Body.velocity.y) < 0.05) {
+    if ((inputs.p1.jump || activeKeys['KeyW']) && Math.abs(p1Body.velocity.y) < 0.1) {
         p1Body.velocity.y = jumpForce;
         inputs.p1.jump = false;
     }
 
-    // Oyuncu 2 Hareket
+    // Oyuncu 2
     if (inputs.p2.moveX !== 0) p2Body.velocity.x = inputs.p2.moveX * speed;
     else if (activeKeys['ArrowLeft']) p2Body.velocity.x = -speed;
     else if (activeKeys['ArrowRight']) p2Body.velocity.x = speed;
     else p2Body.velocity.x = 0;
 
-    if ((inputs.p2.jump || activeKeys['ArrowUp']) && Math.abs(p2Body.velocity.y) < 0.05) {
+    if ((inputs.p2.jump || activeKeys['ArrowUp']) && Math.abs(p2Body.velocity.y) < 0.1) {
         p2Body.velocity.y = jumpForce;
         inputs.p2.jump = false;
     }
