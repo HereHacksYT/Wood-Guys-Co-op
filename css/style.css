@@ -6,47 +6,47 @@ body {
     font-family: 'Arial', sans-serif;
     user-select: none;
     touch-action: none;
-}
-
-canvas {
-    display: block;
     width: 100vw;
     height: 100vh;
 }
 
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
 #ui-container {
     position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 100%;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
+    flex-direction: row;
+    gap: 40px;
     pointer-events: none;
     z-index: 10;
 }
 
 .player-ui {
     background: rgba(0, 0, 0, 0.6);
-    padding: 8px;
-    border-radius: 5px;
+    padding: 6px 15px;
+    border-radius: 8px;
     color: white;
-    width: 140px;
+    width: 120px;
     border: 2px solid #8B5A2B;
+    text-align: center;
 }
 
 .player-ui h2 {
     margin: 0 0 5px 0;
-    font-size: 12px;
-    text-align: center;
+    font-size: 11px;
 }
 
 .health-bar {
     width: 100%;
-    height: 12px;
-    background: #555;
+    height: 10px;
+    background: #444;
     border-radius: 3px;
     overflow: hidden;
 }
@@ -54,11 +54,11 @@ canvas {
 #p1-health { height: 100%; background: #00ff00; }
 #p2-health { height: 100%; background: #ff0000; }
 
-/* DOKUNMATİK KONTROL STİLLERİ */
+/* JOYSTICK VE BUTON AYARLARI */
 .joystick-zone {
     position: absolute;
-    width: 120px;
-    height: 120px;
+    width: 130px;
+    height: 130px;
     z-index: 5;
     display: flex;
     justify-content: center;
@@ -66,41 +66,40 @@ canvas {
 }
 
 .joystick-base {
-    width: 90px;
-    height: 90px;
-    background: rgba(255, 255, 255, 0.2);
-    border: 3px solid rgba(255, 255, 255, 0.4);
+    width: 100px;
+    height: 100px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 3px solid rgba(255, 255, 255, 0.3);
     border-radius: 50%;
     position: relative;
 }
 
 .joystick-stick {
-    width: 40px;
-    height: 40px;
-    background: rgba(255, 255, 255, 0.7);
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.6);
     border-radius: 50%;
     position: absolute;
-    top: 25px;
-    left: 25px;
-    transform: translate(0, 0);
+    top: 28px;
+    left: 28px;
 }
 
 .action-btn {
     position: absolute;
-    width: 80px;
-    height: 80px;
-    background: rgba(139, 90, 43, 0.8);
+    width: 75px;
+    height: 75px;
+    background: rgba(139, 90, 43, 0.85);
     border: 3px solid #fff;
     border-radius: 50%;
     color: white;
     font-weight: bold;
-    font-size: 12px;
+    font-size: 11px;
     z-index: 5;
     outline: none;
 }
 
-/* Konumlandırmalar */
-.bottom-left { bottom: 20px; left: 20px; }
-.bottom-right-btn { bottom: 20px; right: 20px; }
-.top-right { top: 20px; right: 20px; }
-.top-left-btn { top: 20px; left: 20px; }
+/* Yatay Ekran Konumları */
+.bottom-left { bottom: 15px; left: 25px; }
+.bottom-right { bottom: 15px; right: 25px; }
+.top-left-btn { top: 70px; left: 35px; }
+.top-right-btn { top: 70px; right: 35px; }
