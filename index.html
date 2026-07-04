@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=landscape">
     <title>Here Wars Mobile</title>
     
-    <!-- Kütüphaneler -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
@@ -17,41 +16,28 @@
         }
         canvas { display: block; width: 100%; height: 100%; }
 
-        /* TAHTA MENÜ ARAYÜZÜ STİLLERİ */
+        /* MENÜ ARAYÜZÜ */
         #menu-container {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            font-family: 'Arial', sans-serif;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100; font-family: Arial, sans-serif;
         }
-        #loading-text {
-            color: #fff; font-size: 24px; text-shadow: 2px 2px #000; margin-bottom: 20px;
-        }
+        #loading-text { color: #fff; font-size: 24px; text-shadow: 2px 2px #000; margin-bottom: 20px; }
         #play-btn {
             display: none; padding: 15px 45px; font-size: 28px; font-weight: bold;
             color: #5c3a21; background-color: #d7a15c; border: 6px solid #8b5a2b;
-            border-radius: 12px; box-shadow: 0px 6px 0px #5c3a21, 0px 10px 15px rgba(0,0,0,0.5);
-            cursor: pointer; text-shadow: 1px 1px 0px #ffe4b5;
-        }
-        #play-btn:active {
-            transform: translateY(4px); box-shadow: 0px 2px 0px #5c3a21, 0px 4px 10px rgba(0,0,0,0.5);
+            border-radius: 12px; box-shadow: 0px 6px 0px #5c3a21; cursor: pointer;
         }
 
-        /* ÜST PANEL: BÖLÜM GÖSTERGESİ */
+        /* ÜST PANEL */
         #level-indicator {
             position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
             background: #d7a15c; border: 4px solid #8b5a2b; color: #5c3a21;
             padding: 6px 24px; font-weight: bold; font-size: 20px; border-radius: 10px;
-            z-index: 50; display: none; text-shadow: 1px 1px 0px #ffe4b5;
-            box-shadow: 0px 4px 0px #5c3a21;
+            z-index: 50; display: none; box-shadow: 0px 4px 0px #5c3a21; font-family: Arial, sans-serif;
         }
 
-        /* AYRI AYRI SOL VE SAĞ CAN BARLARI */
+        /* CAN BARLARI */
         .player-ui {
             position: absolute; top: 15px; width: 160px; background: rgba(0, 0, 0, 0.6);
             border: 3px solid #8b5a2b; border-radius: 8px; padding: 8px; color: #fff;
@@ -59,65 +45,59 @@
         }
         #p1-ui { left: 20px; border-color: #3b82f6; }
         #p2-ui { right: 20px; border-color: #ef4444; }
-        
-        .player-ui h2 { margin: 0 0 5px 0; font-size: 14px; text-align: center; text-shadow: 1px 1px 2px #000; }
+        .player-ui h2 { margin: 0 0 5px 0; font-size: 14px; text-align: center; }
         .health-bar { width: 100%; height: 14px; background: #333; border-radius: 4px; overflow: hidden; border: 1px solid #000; }
         #p1-health { height: 100%; background: #3b82f6; width: 100%; transition: width 0.2s; }
         #p2-health { height: 100%; background: #ef4444; width: 100%; transition: width 0.2s; }
 
-        /* MOBİL BUTONLAR VE DOKUNMATİK ALANLAR */
-        .joystick-zone {
-            position: absolute; bottom: 15px; width: 100px; height: 100px; z-index: 40; display: none;
-        }
+        /* MOBİL DOKUNMATİK KONTROLLER */
+        .joystick-zone { position: absolute; bottom: 15px; width: 100px; height: 100px; z-index: 40; display: none; }
         .bottom-left { left: 20px; }
         .bottom-right { right: 20px; }
-        
-        .joystick-base {
-            width: 100%; height: 100%; background: rgba(255,255,255,0.15);
-            border: 3px solid rgba(255,255,255,0.4); border-radius: 50%;
-            display: flex; justify-content: center; align-items: center;
-        }
-        .joystick-stick {
-            width: 40px; height: 40px; background: rgba(255,255,255,0.7); border-radius: 50%;
-            box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
-        }
+        .joystick-base { width: 100%; height: 100%; background: rgba(255,255,255,0.15); border: 3px solid rgba(255,255,255,0.4); border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+        .joystick-stick { width: 40px; height: 40px; background: rgba(255,255,255,0.7); border-radius: 50%; }
 
         .action-btn {
             position: absolute; top: 50%; transform: translateY(-50%);
             width: 85px; height: 85px; background: #a67c52; border: 4px solid #5c3a21;
             color: #fff; font-weight: bold; font-size: 16px; border-radius: 50%;
             z-index: 40; display: none; box-shadow: 0px 5px 0px #362213;
-            text-shadow: 1px 1px 2px #000;
         }
         .top-left-btn { left: 140px; }
         .top-right-btn { right: 140px; }
-        .action-btn:active { transform: translateY(-46%); box-shadow: 0px 1px 0px #362213; }
 
-        /* TAŞIMA MODU BUTONLARI */
         .carry-btn {
             position: absolute; bottom: 20px; width: 85px; height: 45px;
             font-weight: bold; font-size: 13px; background: #d7a15c;
             border: 3px solid #8b5a2b; color: #5c3a21; border-radius: 8px;
             z-index: 40; display: none; box-shadow: 0 4px 0 #5c3a21;
-            text-shadow: 1px 1px 0px #ffe4b5;
         }
-        .carry-btn.active { background: #ffcc00; box-shadow: 0 2px 0 #5c3a21; transform: translateY(2px); }
+        .carry-btn.active { background: #ffcc00; }
         #p1-carry-btn { left: 240px; }
         #p2-carry-btn { right: 240px; }
+
+        /* BİTİŞ KAPSAMINDA BELİRECEK ÇIK BUTONLARI */
+        .exit-btn {
+            position: absolute; bottom: 35px; width: 110px; height: 55px;
+            background: #ef4444; border: 4px solid #991b1b; color: white;
+            font-weight: bold; font-size: 18px; border-radius: 10px;
+            z-index: 60; display: none; box-shadow: 0 5px 0 #7f1d1d;
+            font-family: Arial, sans-serif; text-shadow: 1px 1px 2px #000;
+        }
+        #p1-exit-btn { left: 40px; }
+        #p2-exit-btn { right: 40px; }
+        .exit-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #7f1d1d; }
     </style>
 </head>
 <body>
 
-    <!-- GİRİŞ VE YÜKLEME EKRANI -->
     <div id="menu-container">
         <div id="loading-text">Bölümler ve Modeller Hazırlanıyor...</div>
         <button id="play-btn">PLAY</button>
     </div>
 
-    <!-- ÜST PANEL BİLGİLERİ -->
     <div id="level-indicator">BÖLÜM: <span id="level-num">1</span></div>
 
-    <!-- AYRI SOL VE SAĞ CAN BARLARI -->
     <div id="p1-ui" class="player-ui">
         <h2>Puppet (Mavi)</h2>
         <div class="health-bar"><div id="p1-health"></div></div>
@@ -127,19 +107,23 @@
         <div class="health-bar"><div id="p2-health"></div></div>
     </div>
 
-    <!-- MAVİ OYUNCU (P1) DOKUNMATİK KONTROLLERİ -->
-    <div id="p1-joystick-zone" class="joystick-zone bottom-left">
-        <div class="joystick-base"><div id="p1-joystick-stick" class="joystick-stick"></div></div>
+    <div id="p1-controls">
+        <div id="p1-joystick-zone" class="joystick-zone bottom-left">
+            <div class="joystick-base"><div id="p1-joystick-stick" class="joystick-stick"></div></div>
+        </div>
+        <button id="p1-action-btn" class="action-btn top-left-btn">ZIPLA</button>
+        <button id="p1-carry-btn" class="carry-btn">TAŞI: OFF</button>
     </div>
-    <button id="p1-action-btn" class="action-btn top-left-btn">ZIPLA</button>
-    <button id="p1-carry-btn" class="carry-btn">TAŞI: OFF</button>
+    <button id="p1-exit-btn" class="exit-btn">ÇIK</button>
 
-    <!-- KIRMIZI OYUNCU (P2) DOKUNMATİK KONTROLLERİ -->
-    <div id="p2-joystick-zone" class="joystick-zone bottom-right">
-        <div class="joystick-base"><div id="p2-joystick-stick" class="joystick-stick"></div></div>
+    <div id="p2-controls">
+        <div id="p2-joystick-zone" class="joystick-zone bottom-right">
+            <div class="joystick-base"><div id="p2-joystick-stick" class="joystick-stick"></div></div>
+        </div>
+        <button id="p2-action-btn" class="action-btn top-right-btn">ZIPLA</button>
+        <button id="p2-carry-btn" class="carry-btn">TAŞI: OFF</button>
     </div>
-    <button id="p2-action-btn" class="action-btn top-right-btn">ZIPLA</button>
-    <button id="p2-carry-btn" class="carry-btn">TAŞI: OFF</button>
+    <button id="p2-exit-btn" class="exit-btn">ÇIK</button>
 
     <script src="js/game.js"></script>
 </body>
