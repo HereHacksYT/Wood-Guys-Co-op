@@ -20,7 +20,6 @@ window.addEventListener('keyup', (e) => { activeKeys[e.code] = false; });
 
 // --- OYUN BAŞLANGICI ---
 function init() {
-    // 1. Üç Boyutlu Sahne ve Kamera Kurulumu
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a1a);
 
@@ -32,7 +31,7 @@ function init() {
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // 2. Net ve Parlamayan Işık Düzeni
+    // Net ve Parlamayan Işık Düzeni
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     scene.add(ambientLight);
     
@@ -41,21 +40,18 @@ function init() {
     dirLight.castShadow = true;
     scene.add(dirLight);
 
-    // 3. Fizik Dünyası (Cannon.js)
+    // Fizik Dünyası (Cannon.js)
     world = new CANNON.World();
     world.gravity.set(0, -14, 0);
 
-    // Çimenlik Alan Fiziği
     const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(20, 0.2, 3)) });
     groundBody.position.set(0, 0, 0);
     world.addBody(groundBody);
 
-    // Toprak Alan Fiziği
     const dirtBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(20, 1.5, 3)) });
     dirtBody.position.set(0, -1.7, 0);
     world.addBody(dirtBody);
 
-    // Sürtünmesiz kayma ayarları (Takılmaları önler)
     const playerMaterial = new CANNON.Material("playerMat");
     const groundMaterial = new CANNON.Material("groundMat");
     groundBody.material = groundMaterial;
@@ -64,7 +60,7 @@ function init() {
     const contactMat = new CANNON.ContactMaterial(playerMaterial, groundMaterial, { friction: 0.0, restitution: 0.02 });
     world.addContactMaterial(contactMat);
 
-    // 4. Görsel Nesneler (Three.js)
+    // Görsel Nesneler (Three.js)
     const textureLoader = new THREE.TextureLoader();
 
     // Arka Gökyüzü Duvarı
@@ -87,17 +83,42 @@ function init() {
     dirtMesh.position.y = -1.7; dirtMesh.receiveShadow = true;
     scene.add(dirtMesh);
 
-    // 5. Oyuncuları Yarat (Fizik + Küp Görselleri)
+    // Oyuncuları Yarat
     p1Body = createPhysicsPlayer(-3, 3, 0, playerMaterial);
-    p2Body = createPhysicsPlayer(3, 3, 0, playerMaterial);
+    p2Body = createPhysicsPlayer(3, 4, 0, playerMaterial);
 
-    // Mavi Oyuncu Küpü
-    p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2.2, 1), new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.6 }));
-    p1Mesh.castShadow = true; scene.add(p1Mesh);
+    // Global yükleyiciyi çağırıyoruz
+    const loader = new THREE.GLTFLoader();
 
-    // Kırmızı Oyuncu Küpü
-    p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2.2, 1), new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.6 }));
-    p2Mesh.castShadow = true; scene.add(p2Mesh);
+    // --- 1. OYUNCU MODELDEN YÜKLEME (Mavi) ---
+    loader.load('assets/models/puppet_1.glb', (gltf) => {
+        p1Mesh = gltf.scene;
+        p1Mesh.traverse(c => { if(c.isMesh) c.castShadow = true; });
+        scene.add(p1Mesh);
+    }, undefined, () => {
+        // Dosya yoksa veya hata verirse çalışan yedek küpümüz:
+        p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2.2, 1), new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.6 }));
+        p1Mesh.castShadow = true; 
+        scene.add(p1Mesh);
+    });
+
+    // --- 2. OYUNCU MODELDEN YÜKLEME (Kırmızı / Soviet Robot) ---
+    loader.load('assets/models/soviet_robot.glb', (gltf) => {
+        p2Mesh = gltf.scene;
+        
+        // Pivot/Merkez kaymasını engelleme ayarı
+        const box = new THREE.Box3().setFromObject(p2Mesh);
+        const center = box.getCenter(new THREE.Vector3());
+        p2Mesh.position.sub(center);
+        
+        p2Mesh.traverse(c => { if(c.isMesh) c.castShadow = true; });
+        scene.add(p2Mesh);
+    }, undefined, () => {
+        // Dosya yoksa veya hata verirse çalışan yedek küpümüz:
+        p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2.2, 1), new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.6 }));
+        p2Mesh.castShadow = true; 
+        scene.add(p2Mesh);
+    });
 
     // Ses Tetikleyicileri
     p1Body.addEventListener('collide', (e) => {
@@ -109,7 +130,6 @@ function init() {
         else { fallSound.currentTime = 0; fallSound.play().catch(()=>{}); }
     });
 
-    // Kontrolleri Etkinleştir ve Döngüyü Başlat
     setupTouchControls();
     window.addEventListener('resize', onWindowResize);
     animate();
