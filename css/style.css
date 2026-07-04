@@ -5,6 +5,7 @@ body {
     background-color: #1a1a1a;
     font-family: 'Arial', sans-serif;
     user-select: none;
+    touch-action: none;
 }
 
 canvas {
@@ -15,46 +16,91 @@ canvas {
 
 #ui-container {
     position: absolute;
-    top: 20px;
+    top: 50%;
+    transform: translateY(-50%);
     width: 100%;
     display: flex;
-    justify-content: space-between;
-    padding: 0 50px;
-    box-sizing: border-box;
-    pointer-events: none; /* Tıklamaları engelle, arkadaki oyuna gitsin */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+    z-index: 10;
 }
 
 .player-ui {
     background: rgba(0, 0, 0, 0.6);
-    padding: 15px;
-    border-radius: 10px;
+    padding: 8px;
+    border-radius: 5px;
     color: white;
-    width: 200px;
-    border: 2px solid #8B5A2B; /* Ahşap rengi çerçeve */
+    width: 140px;
+    border: 2px solid #8B5A2B;
 }
 
 .player-ui h2 {
-    margin: 0 0 10px 0;
-    font-size: 16px;
+    margin: 0 0 5px 0;
+    font-size: 12px;
     text-align: center;
 }
 
 .health-bar {
     width: 100%;
-    height: 20px;
+    height: 12px;
     background: #555;
-    border-radius: 5px;
+    border-radius: 3px;
     overflow: hidden;
 }
 
-#p1-health {
-    height: 100%;
-    background: #00ff00;
-    transition: width 0.2s;
+#p1-health { height: 100%; background: #00ff00; }
+#p2-health { height: 100%; background: #ff0000; }
+
+/* DOKUNMATİK KONTROL STİLLERİ */
+.joystick-zone {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    z-index: 5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-#p2-health {
-    height: 100%;
-    background: #ff0000;
-    transition: width 0.2s;
+.joystick-base {
+    width: 90px;
+    height: 90px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 3px solid rgba(255, 255, 255, 0.4);
+    border-radius: 50%;
+    position: relative;
 }
+
+.joystick-stick {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+    position: absolute;
+    top: 25px;
+    left: 25px;
+    transform: translate(0, 0);
+}
+
+.action-btn {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    background: rgba(139, 90, 43, 0.8);
+    border: 3px solid #fff;
+    border-radius: 50%;
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+    z-index: 5;
+    outline: none;
+}
+
+/* Konumlandırmalar */
+.bottom-left { bottom: 20px; left: 20px; }
+.bottom-right-btn { bottom: 20px; right: 20px; }
+.top-right { top: 20px; right: 20px; }
+.top-left-btn { top: 20px; left: 20px; }
