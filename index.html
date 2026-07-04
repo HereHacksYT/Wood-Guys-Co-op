@@ -30,13 +30,13 @@
             margin-bottom: 20px;
         }
         #play-btn {
-            display: none; /* Yükleme bitince açılacak */
+            display: none;
             padding: 15px 40px;
             font-size: 28px;
             font-weight: bold;
-            color: #5c3a21; /* Koyu Tahta Rengi Text */
-            background-color: #d7a15c; /* Açık Renk Tahta Gövde */
-            border: 6px solid #8b5a2b; /* Koyu Renk Tahta Çerçeve */
+            color: #5c3a21;
+            background-color: #d7a15c;
+            border: 6px solid #8b5a2b;
             border-radius: 12px;
             box-shadow: 0px 6px 0px #5c3a21, 0px 10px 15px rgba(0,0,0,0.5);
             cursor: pointer;
@@ -46,7 +46,6 @@
             transform: translateY(4px);
             box-shadow: 0px 2px 0px #5c3a21, 0px 4px 10px rgba(0,0,0,0.5);
         }
-        /* Bölüm Seçim Arayüzü */
         #level-indicator {
             position: absolute;
             top: 20px;
@@ -62,14 +61,36 @@
             z-index: 50;
             display: none;
         }
-        /* Dokunmatik kontroller oyun başlayana kadar gizli kalacak */
+        /* TAŞIMA MODU BUTONLARI */
+        .carry-btn {
+            position: absolute;
+            bottom: 20px;
+            width: 75px;
+            height: 45px;
+            font-weight: bold;
+            font-size: 13px;
+            background: #d7a15c;
+            border: 3px solid #8b5a2b;
+            color: #5c3a21;
+            border-radius: 8px;
+            z-index: 60;
+            display: none;
+            box-shadow: 0 4px 0 #5c3a21;
+        }
+        .carry-btn.active {
+            background: #ffcc00;
+            box-shadow: 0 2px 0 #5c3a21;
+            transform: translateY(2px);
+        }
+        #p1-carry-btn { left: 140px; }
+        #p2-carry-btn { right: 140px; }
         .joystick-zone, .action-btn, #ui-container { display: none; }
     </style>
 </head>
 <body>
 
     <div id="menu-container">
-        <div id="loading-text">Modeller Yükleniyor...</div>
+        <div id="loading-text">Bölümler ve Modeller Hazırlanıyor...</div>
         <button id="play-btn">PLAY</button>
     </div>
 
@@ -77,11 +98,11 @@
 
     <div id="ui-container">
         <div class="player-ui" id="p1-ui">
-            <h2>Mavi Oyuncu</h2>
+            <h2>Puppet (Mavi)</h2>
             <div class="health-bar"><div id="p1-health" style="width: 100%;"></div></div>
         </div>
         <div class="player-ui" id="p2-ui">
-            <h2>Kırmızı Oyuncu</h2>
+            <h2>Soviet (Kırmızı)</h2>
             <div class="health-bar"><div id="p2-health" style="width: 100%;"></div></div>
         </div>
     </div>
@@ -89,12 +110,14 @@
     <div id="p1-joystick-zone" class="joystick-zone bottom-left">
         <div class="joystick-base"><div id="p1-joystick-stick" class="joystick-stick"></div></div>
     </div>
-    <button id="p1-action-btn" class="action-btn top-left-btn">VUR/ZIPLA</button>
+    <button id="p1-action-btn" class="action-btn top-left-btn">ZIPLA</button>
+    <button id="p1-carry-btn" class="carry-btn">TAŞI: OFF</button>
 
     <div id="p2-joystick-zone" class="joystick-zone bottom-right">
         <div class="joystick-base"><div id="p2-joystick-stick" class="joystick-stick"></div></div>
     </div>
-    <button id="p2-action-btn" class="action-btn top-right-btn">VUR/ZIPLA</button>
+    <button id="p2-action-btn" class="action-btn top-right-btn">ZIPLA</button>
+    <button id="p2-carry-btn" class="carry-btn">TAŞI: OFF</button>
 
     <script src="js/game.js"></script>
 </body>
