@@ -1,56 +1,66 @@
-let world;
+export const inputs = {
+    p1: { moveX: 0, jump: false },
+    p2: { moveX: 0, jump: false }
+};
 
-export function initPhysics() {
-    world = new CANNON.World();
-    world.gravity.set(0, -14, 0); 
+const activeKeys = {};
+window.addEventListener('keydown', (e) => { activeKeys[e.code] = true; });
+window.addEventListener('keyup', (e) => { activeKeys[e.code] = false; });
 
-    // Çimenlik Alan Fiziği
-    const groundBody = new CANNON.Body({
-        mass: 0,
-        shape: new CANNON.Box(new CANNON.Vec3(20, 0.2, 3))
-    });
-    groundBody.position.set(0, 0, 0);
-    world.addBody(groundBody);
+export function setupTouchControls() {
+    setupJoystick('p1-joystick-zone', 'p1-joystick-stick', (x) => { inputs.p1.moveX = x; });
+    document.getElementById('p1-action-btn').addEventListener('touchstart', () => { inputs.p1.jump = true; });
+    document.getElementById('p1-action-btn').addEventListener('touchend', () => { inputs.p1.jump = false; });
 
-    // Toprak Alan Fiziği
-    const dirtBody = new CANNON.Body({
-        mass: 0,
-        shape: new CANNON.Box(new CANNON.Vec3(20, 1.5, 3))
-    });
-    dirtBody.position.set(0, -1.7, 0);
-    world.addBody(dirtBody);
-
-    const playerMaterial = new CANNON.Material("playerMat");
-    const groundMaterial = new CANNON.Material("groundMat");
-
-    groundBody.material = groundMaterial;
-    dirtBody.material = groundMaterial;
-
-    const contactMat = new CANNON.ContactMaterial(playerMaterial, groundMaterial, {
-        friction: 0.0,
-        restitution: 0.02
-    });
-    world.addContactMaterial(contactMat);
-
-    return world;
+    setupJoystick('p2-joystick-zone', 'p2-joystick-stick', (x) => { inputs.p2.moveX = x; });
+    document.getElementById('p2-action-btn').addEventListener('touchstart', () => { inputs.p2.jump = true; });
+    document.getElementById('p2-action-btn').addEventListener('touchend', () => { inputs.p2.jump = false; });
 }
 
-export function createPhysicsPlayer(x, y, z) {
-    const body = new CANNON.Body({
-        mass: 4,
-        material: new CANNON.Material("playerMat")
-    });
-    
-    // Takılma önleyici alt küre tabanı
-    const sphereShape = new CANNON.Sphere(0.5);
-    body.addShape(sphereShape, new CANNON.Vec3(0, -0.5, 0));
-    
-    const boxShape = new CANNON.Box(new CANNON.Vec3(0.45, 0.6, 0.45));
-    body.addShape(boxShape, new CANNON.Vec3(0, 0.4, 0));
+function setupJoystick(zoneId, stickId, callback) {
+    const zone = document.getElementById(zoneId);
+    const stick = document.getElementById(stickId);
+    let startX = 0;
 
-    body.position.set(x, y, z); // Tam hizalanma sağlandı
-    body.fixedRotation = true;
-    body.updateMassProperties();
-    world.addBody(body);
-    return body;
+    zone.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; });
+    zone.addEventListener('touchmove', (e) => {
+        const touchX = e.touches[0].clientX;
+        let deltaX = touchX - startX;
+        deltaX = Math.max(-28, Math.min(28, deltaX));
+        stick.style.transform = `translateX(${deltaX}px)`;
+        callback(deltaX / 28);
+    });
+    zone.addEventListener('touchend', () => {
+        stick.style.transform = `translate(0px, 0px)`;
+        callback(0);
+    });
+}
+
+export function handleControls(p1Body, p2Body) {
+    const speed = 7;
+    const jumpForce = 7.5;
+
+    // Oyuncu 1 Hareket
+    if (inputs.p1.moveX !== 0) p1Body.velocity.x = inputs.p1.moveX * speed;
+    else if (activeKeys['KeyA']) p1Body.velocity.x = -speed;
+    else if (activeKeys['KeyD']) p1Body.velocity.x = speed;
+    else p1Body.velocity.x = 0;
+
+    // HAVADA ZIPLAMA KORUMASI (Dikey hız tam sıfıra yakın olmalı)
+    if ((inputs.p1.jump || activeKeys['KeyW']) && Math.abs(p1Body.velocity.y) < 0.01) {
+        p1Body.velocity.y = jumpForce;
+        inputs.p1.jump = false;
+    }
+
+    // Oyuncu 2 Hareket
+    if (inputs.p2.moveX !== 0) p2Body.velocity.x = inputs.p2.moveX * speed;
+    else if (activeKeys['ArrowLeft']) p2Body.velocity.x = -speed;
+    else if (activeKeys['ArrowRight']) p2Body.velocity.x = speed;
+    else p2Body.velocity.x = 0;
+
+    // HAVADA ZIPLAMA KORUMASI
+    if ((inputs.p2.jump || activeKeys['ArrowUp']) && Math.abs(p2Body.velocity.y) < 0.01) {
+        p2Body.velocity.y = jumpForce;
+        inputs.p2.jump = false;
+    }
 }
