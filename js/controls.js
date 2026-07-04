@@ -1,4 +1,3 @@
-// Basılı tutulan tüm tuşları hafızada tutacak obje
 const activeKeys = {};
 
 window.addEventListener('keydown', (e) => {
@@ -9,38 +8,26 @@ window.addEventListener('keyup', (e) => {
     activeKeys[e.code] = false;
 });
 
-// Oyun döngüsü (Tick) içinde her karede bu fonksiyonu çağıracağız
-export function handlePlayerControls(player1PhysicsBody, player2PhysicsBody) {
-    // ---- 1. OYUNCU KONTROLLERİ (A - D - W) ----
-    if (activeKeys['KeyA']) {
-        // Sol tekerleğe geriye doğru tork veya kuvvet uygula
-        player1PhysicsBody.angularVelocity.y = -5; 
-    }
-    if (activeKeys['KeyD']) {
-        // Sağ tekerleğe ileri doğru kuvvet uygula
-        player1PhysicsBody.angularVelocity.y = 5;
-    }
-    if (activeKeys['KeyW']) {
-        // Silah sallama animasyonunu veya fiziğini tetikle
-        player1WeaponStrike();
+export function handleControls(p1Body, p2Body) {
+    const speed = 5;
+
+    // Oyuncu 1: A ve D tuşları (Sağa-Sola İlerleme)
+    if (activeKeys['KeyA']) p1Body.velocity.x = -speed;
+    else if (activeKeys['KeyD']) p1Body.velocity.x = speed;
+    else p1Body.velocity.x = 0;
+
+    // Oyuncu 1: W tuşu (Zıplama / Saldırı)
+    if (activeKeys['KeyW'] && Math.abs(p1Body.velocity.y) < 0.1) {
+        p1Body.velocity.y = 8;
     }
 
-    // ---- 2. OYUNCU KONTROLLERİ (Yön Tuşları) ----
-    if (activeKeys['ArrowLeft']) {
-        player2PhysicsBody.angularVelocity.y = -5;
-    }
-    if (activeKeys['ArrowRight']) {
-        player2PhysicsBody.angularVelocity.y = 5;
-    }
-    if (activeKeys['ArrowUp']) {
-        player2WeaponStrike();
-    }
-}
+    // Oyuncu 2: Sol ve Sağ Yön Tuşları
+    if (activeKeys['ArrowLeft']) p2Body.velocity.x = -speed;
+    else if (activeKeys['ArrowRight']) p2Body.velocity.x = speed;
+    else p2Body.velocity.x = 0;
 
-function player1WeaponStrike() {
-    // 1. Oyuncunun elindeki kılıç/balta modeline fiziksel ivme kazandır
-}
-
-function player2WeaponStrike() {
-    // 2. Oyuncunun elindeki kılıç/balta modeline fiziksel ivme kazandır
+    // Oyuncu 2: Yukarı Yön Tuşu
+    if (activeKeys['ArrowUp'] && Math.abs(p2Body.velocity.y) < 0.1) {
+        p2Body.velocity.y = 8;
+    }
 }
