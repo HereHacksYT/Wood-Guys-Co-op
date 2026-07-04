@@ -9,25 +9,32 @@ window.addEventListener('keyup', (e) => {
 });
 
 export function handleControls(p1Body, p2Body) {
-    const speed = 5;
+    const speed = 6;
+    const jumpForce = 7;
 
-    // Oyuncu 1: A ve D tuşları (Sağa-Sola İlerleme)
-    if (activeKeys['KeyA']) p1Body.velocity.x = -speed;
-    else if (activeKeys['KeyD']) p1Body.velocity.x = speed;
-    else p1Body.velocity.x = 0;
-
-    // Oyuncu 1: W tuşu (Zıplama / Saldırı)
-    if (activeKeys['KeyW'] && Math.abs(p1Body.velocity.y) < 0.1) {
-        p1Body.velocity.y = 8;
+    // ---- OYUNCU 1 (A - D - W) ----
+    if (activeKeys['KeyA']) {
+        p1Body.velocity.x = -speed;
+    } else if (activeKeys['KeyD']) {
+        p1Body.velocity.x = speed;
+    } else {
+        p1Body.velocity.x = 0;
     }
 
-    // Oyuncu 2: Sol ve Sağ Yön Tuşları
-    if (activeKeys['ArrowLeft']) p2Body.velocity.x = -speed;
-    else if (activeKeys['ArrowRight']) p2Body.velocity.x = speed;
-    else p2Body.velocity.x = 0;
+    if (activeKeys['KeyW'] && Math.abs(p1Body.velocity.y) < 0.05) {
+        p1Body.velocity.y = jumpForce;
+    }
 
-    // Oyuncu 2: Yukarı Yön Tuşu
-    if (activeKeys['ArrowUp'] && Math.abs(p2Body.velocity.y) < 0.1) {
-        p2Body.velocity.y = 8;
+    // ---- OYUNCU 2 (Yön Tuşları) ----
+    if (activeKeys['ArrowLeft']) {
+        p2Body.velocity.x = -speed;
+    } else if (activeKeys['ArrowRight']) {
+        p2Body.velocity.x = speed;
+    } else {
+        p2Body.velocity.x = 0;
+    }
+
+    if (activeKeys['ArrowUp'] && Math.abs(p2Body.velocity.y) < 0.05) {
+        p2Body.velocity.y = jumpForce;
     }
 }
