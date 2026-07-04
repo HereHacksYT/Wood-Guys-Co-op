@@ -4,7 +4,7 @@ export function initPhysics() {
     world = new CANNON.World();
     world.gravity.set(0, -9.82, 0);
 
-    // 1. Çimenlik Üst Zemin (Karakterlerin bastığı yer)
+    // Çimen Üst Tabaka Fiziği
     const groundBody = new CANNON.Body({
         mass: 0,
         shape: new CANNON.Box(new CANNON.Vec3(25, 0.2, 5))
@@ -12,7 +12,7 @@ export function initPhysics() {
     groundBody.position.set(0, 0, 0);
     world.addBody(groundBody);
 
-    // 2. Toprak Alt Zemin (Çimenin hemen altındaki kalın katman)
+    // Toprak Alt Katman Fiziği
     const dirtBody = new CANNON.Body({
         mass: 0,
         shape: new CANNON.Box(new CANNON.Vec3(25, 2, 5))
@@ -20,7 +20,7 @@ export function initPhysics() {
     dirtBody.position.set(0, -2.2, 0);
     world.addBody(dirtBody);
 
-    // 3. Arka Duvar Fiziği (Karakterler arkaya düşmesin diye)
+    // Koruma Duvarı Fiziği
     const wallBody = new CANNON.Body({
         mass: 0,
         shape: new CANNON.Box(new CANNON.Vec3(25, 15, 0.5))
