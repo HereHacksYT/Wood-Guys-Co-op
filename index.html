@@ -1,1 +1,25 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wood Guys Co-op</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+</head>
+<body>
+    <div id="ui-container">
+        <div class="player-ui" id="p1-ui">
+            <h2>Oyuncu 1 (A-D-W)</h2>
+            <div class="health-bar"><div id="p1-health" style="width: 100%;"></div></div>
+        </div>
+        <div class="player-ui" id="p2-ui">
+            <h2>Oyuncu 2 (Yön Tuşları)</h2>
+            <div class="health-bar"><div id="p2-health" style="width: 100%;"></div></div>
+        </div>
+    </div>
 
+    <script type="module" src="js/game.js"></script>
+</body>
+</html>
