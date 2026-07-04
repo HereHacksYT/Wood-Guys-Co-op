@@ -11,20 +11,25 @@ const fallSound = new Audio('assets/audio/freesound_community-body-falling-to-gr
 
 function init() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB);
 
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 4, 10);
+    // 1. images.jpeg'i Gökyüzü Arka Planı Yapma
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load('assets/textures/images.jpeg', (skyTex) => {
+        scene.background = skyTex;
+    }, undefined, () => {
+        scene.background = new THREE.Color(0x87CEEB); // Hata durumunda koruma rengi
+    });
+
+    camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 4, 11);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // Mobil dokunmatik dinleyicilerini başlat
     setupTouchControls();
 
-    // Işıklandırma
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -34,77 +39,73 @@ function init() {
 
     world = initPhysics();
 
-    // ---- DOKU VE MODEL YÜKLEMELERİ ----
-    const textureLoader = new THREE.TextureLoader();
-
-    // 1. Çimen Kaplamalı Üst Zemin
+    // 2. Çimen Üst Zemin
     const grassTex = textureLoader.load('assets/textures/aerial_grass_rock.png');
     grassTex.wrapS = THREE.RepeatWrapping;
-    grassTex.repeat.set(5, 1);
-    const groundGeo = new THREE.BoxGeometry(50, 0.4, 10);
-    const groundMat = new THREE.MeshStandardMaterial({ map: grassTex });
-    groundMesh = new THREE.Mesh(groundGeo, groundMat);
+    grassTex.repeat.set(6, 1);
+    groundMesh = new THREE.Mesh(new THREE.BoxGeometry(50, 0.4, 10), new THREE.MeshStandardMaterial({ map: grassTex }));
     groundMesh.position.y = 0;
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
 
-    // 2. Toprak Kaplamalı Alt Zemin
+    // 3. Toprak Alt Katman
     const dirtTex = textureLoader.load('assets/textures/rocky_trail_02.png');
     dirtTex.wrapS = THREE.RepeatWrapping;
-    dirtTex.repeat.set(5, 0.5);
-    const dirtGeo = new THREE.BoxGeometry(50, 4, 10);
-    const dirtMat = new THREE.MeshStandardMaterial({ map: dirtTex });
-    dirtMesh = new THREE.Mesh(dirtGeo, dirtMat);
+    dirtTex.repeat.set(6, 0.5);
+    dirtMesh = new THREE.Mesh(new THREE.BoxGeometry(50, 4, 10), new THREE.MeshStandardMaterial({ map: dirtTex }));
     dirtMesh.position.y = -2.2;
     dirtMesh.receiveShadow = true;
     scene.add(dirtMesh);
 
-    // 3. Arka Duvar Kaplaması
+    // 4. Arka Duvar Kaplaması
     const wallTex = textureLoader.load('assets/textures/exterior_wall_cladding_disp_1k.jpg');
     wallTex.wrapS = THREE.RepeatWrapping;
     wallTex.wrapT = THREE.RepeatWrapping;
-    wallTex.repeat.set(10, 4);
-    const wallGeo = new THREE.BoxGeometry(50, 30, 1);
-    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex });
-    wallMesh = new THREE.Mesh(wallGeo, wallMat);
+    wallTex.repeat.set(8, 3);
+    wallMesh = new THREE.Mesh(new THREE.BoxGeometry(50, 30, 1), new THREE.MeshStandardMaterial({ map: wallTex }));
     wallMesh.position.set(0, 13, -2);
     wallMesh.receiveShadow = true;
     scene.add(wallMesh);
 
-    // ---- KUKLA MODELLERİNİ YÜKLEME (.GLB) ----
-    const loader = new GLTFLoader();
-
+    // Oyuncuları Yarat
     p1Body = createPhysicsPlayer(-3, 2);
     p2Body = createPhysicsPlayer(3, 2);
 
-    // Oyuncu 1: Tahta Kukla
+    const loader = new GLTFLoader();
+
+    // Mavi Oyuncu (puppet_1.glb)
     loader.load('assets/models/puppet_1.glb', (gltf) => {
         p1Mesh = gltf.scene;
         p1Mesh.traverse(c => { if(c.isMesh) c.castShadow = true; });
         scene.add(p1Mesh);
     }, undefined, () => {
-        // Model yüklenemezse yedek mavi kutu
         p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.4, 1.2), new THREE.MeshStandardMaterial({ color: 0x3b82f6 }));
         scene.add(p1Mesh);
     });
 
-    // Oyuncu 2: Robot veya Diğer Kukla
-    loader.load('assets/models/puppet_2.glb', (gltf) => {
+    // Kırmızı Oyuncu (soviet_robot.glb veya puppet_2.glb)
+    loader.load('assets/models/soviet_robot.glb', (gltf) => {
         p2Mesh = gltf.scene;
         p2Mesh.traverse(c => { if(c.isMesh) c.castShadow = true; });
         scene.add(p2Mesh);
     }, undefined, () => {
-        // Model yüklenemezse yedek kırmızı kutu
-        p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.4, 1.2), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
-        scene.add(p2Mesh);
+        // Eğer soviet_robot.glb yüklenmezse puppet_2.glb dene
+        loader.load('assets/models/puppet_2.glb', (gltf) => {
+            p2Mesh = gltf.scene;
+            scene.add(p2Mesh);
+        }, undefined, () => {
+            p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.4, 1.2), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
+            scene.add(p2Mesh);
+        });
     });
 
-    // Ses Tetikleyicileri
+    // Çarpışma Sesleri
     p1Body.addEventListener('collide', (e) => {
         if(e.body.mass > 0) { hitSound.currentTime = 0; hitSound.play(); }
         else { fallSound.currentTime = 0; fallSound.play(); }
     });
 
+    window.addEventListener('resize', onWindowResize);
     animate();
 }
 
@@ -117,12 +118,18 @@ function animate() {
     if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.quaternion.copy(p1Body.quaternion); }
     if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.quaternion.copy(p2Body.quaternion); }
 
-    // Dinamik Kamera Takibi
+    // Kamera Takibi
     const midX = (p1Body.position.x + p2Body.position.x) / 2;
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, midX, 0.05);
     camera.lookAt(midX, 2, 0);
 
     renderer.render(scene, camera);
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 window.onload = init;
