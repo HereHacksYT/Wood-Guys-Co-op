@@ -83,41 +83,67 @@ function init() {
     dirtMesh.position.y = -1.7; dirtMesh.receiveShadow = true;
     scene.add(dirtMesh);
 
-    // Oyuncuları Yarat
+    // Oyuncuları Yarat (Fizik Kapsülleri)
     p1Body = createPhysicsPlayer(-3, 3, 0, playerMaterial);
-    p2Body = createPhysicsPlayer(3, 4, 0, playerMaterial);
+    p2Body = createPhysicsPlayer(3, 3, 0, playerMaterial);
 
-    // Global yükleyiciyi çağırıyoruz
     const loader = new THREE.GLTFLoader();
 
-    // --- 1. OYUNCU MODELDEN YÜKLEME (Mavi) ---
+    // --- 1. OYUNCU (Mavi - Puppet 1) ---
     loader.load('assets/models/puppet_1.glb', (gltf) => {
         p1Mesh = gltf.scene;
-        p1Mesh.traverse(c => { if(c.isMesh) c.castShadow = true; });
+        
+        // Sağ tarafa dönmesi için Y ekseninde 90 derece döndürdük (Radyan cinsinden)
+        p1Mesh.rotation.y = Math.PI / 2; 
+
+        // Modelin alt noktasını merkeze alıp tam fizik kutusunun tabanına (yere) oturttuk
+        const box = new THREE.Box3().setFromObject(p1Mesh);
+        const lowestY = box.min.y;
+        p1Mesh.traverse(c => { 
+            if(c.isMesh) {
+                c.castShadow = true;
+                c.position.y -= lowestY; // Altındaki boşluğu yok et
+            }
+        });
+        
+        // Pivot kaymasını engellemek için ana sahneye eklemeden önce hizalama
+        p1Mesh.position.y = -1.1; 
+
         scene.add(p1Mesh);
     }, undefined, () => {
-        // Dosya yoksa veya hata verirse çalışan yedek küpümüz:
+        // Yedek Mavi Küp
         p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2.2, 1), new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.6 }));
-        p1Mesh.castShadow = true; 
-        scene.add(p1Mesh);
+        p1Mesh.castShadow = true; scene.add(p1Mesh);
     });
 
-    // --- 2. OYUNCU MODELDEN YÜKLEME (Kırmızı / Soviet Robot) ---
+    // --- 2. OYUNCU (Kırmızı - Soviet Robot) ---
     loader.load('assets/models/soviet_robot.glb', (gltf) => {
         p2Mesh = gltf.scene;
         
-        // Pivot/Merkez kaymasını engelleme ayarı
-        const box = new THREE.Box3().setFromObject(p2Mesh);
-        const center = box.getCenter(new THREE.Vector3());
-        p2Mesh.position.sub(center);
+        // BOYUTUNU YARIYA İNDİRME (Scale ayarı 0.5 yapıldı)
+        p2Mesh.scale.set(0.5, 0.5, 0.5);
         
-        p2Mesh.traverse(c => { if(c.isMesh) c.castShadow = true; });
+        // Sağ tarafa bakması için Y ekseninde 90 derece döndürdük
+        p2Mesh.rotation.y = Math.PI / 2;
+
+        // Küçültülmüş modelin alt noktasını hesaplayıp tam yere sıfırlıyoruz
+        const box = new THREE.Box3().setFromObject(p2Mesh);
+        const lowestY = box.min.y;
+        
+        p2Mesh.traverse(c => { 
+            if(c.isMesh) {
+                c.castShadow = true;
+            }
+        });
+        
+        // Robotun havada asılı kalmasını önlemek için merkez noktasını tabana çekiyoruz
+        p2Mesh.position.y = -1.1;
+
         scene.add(p2Mesh);
     }, undefined, () => {
-        // Dosya yoksa veya hata verirse çalışan yedek küpümüz:
+        // Yedek Kırmızı Küp
         p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2.2, 1), new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.6 }));
-        p2Mesh.castShadow = true; 
-        scene.add(p2Mesh);
+        p2Mesh.castShadow = true; scene.add(p2Mesh);
     });
 
     // Ses Tetikleyicileri
@@ -183,10 +209,21 @@ function handleGameControls() {
     const jumpForce = 7.5;
 
     // Oyuncu 1
-    if (inputs.p1.moveX !== 0) p1Body.velocity.x = inputs.p1.moveX * speed;
-    else if (activeKeys['KeyA']) p1Body.velocity.x = -speed;
-    else if (activeKeys['KeyD']) p1Body.velocity.x = speed;
-    else p1Body.velocity.x = 0;
+    if (inputs.p1.moveX !== 0) {
+        p1Body.velocity.x = inputs.p1.moveX * speed;
+        if(p1Mesh) p1Mesh.rotation.y = inputs.p1.moveX > 0 ? Math.PI / 2 : -Math.PI / 2;
+    }
+    else if (activeKeys['KeyA']) {
+        p1Body.velocity.x = -speed;
+        if(p1Mesh) p1Mesh.rotation.y = -Math.PI / 2;
+    }
+    else if (activeKeys['KeyD']) {
+        p1Body.velocity.x = speed;
+        if(p1Mesh) p1Mesh.rotation.y = Math.PI / 2;
+    }
+    else {
+        p1Body.velocity.x = 0;
+    }
 
     if ((inputs.p1.jump || activeKeys['KeyW']) && Math.abs(p1Body.velocity.y) < 0.01) {
         p1Body.velocity.y = jumpForce;
@@ -194,10 +231,21 @@ function handleGameControls() {
     }
 
     // Oyuncu 2
-    if (inputs.p2.moveX !== 0) p2Body.velocity.x = inputs.p2.moveX * speed;
-    else if (activeKeys['ArrowLeft']) p2Body.velocity.x = -speed;
-    else if (activeKeys['ArrowRight']) p2Body.velocity.x = speed;
-    else p2Body.velocity.x = 0;
+    if (inputs.p2.moveX !== 0) {
+        p2Body.velocity.x = inputs.p2.moveX * speed;
+        if(p2Mesh) p2Mesh.rotation.y = inputs.p2.moveX > 0 ? Math.PI / 2 : -Math.PI / 2;
+    }
+    else if (activeKeys['ArrowLeft']) {
+        p2Body.velocity.x = -speed;
+        if(p2Mesh) p2Mesh.rotation.y = -Math.PI / 2;
+    }
+    else if (activeKeys['ArrowRight']) {
+        p2Body.velocity.x = speed;
+        if(p2Mesh) p2Mesh.rotation.y = Math.PI / 2;
+    }
+    else {
+        p2Body.velocity.x = 0;
+    }
 
     if ((inputs.p2.jump || activeKeys['ArrowUp']) && Math.abs(p2Body.velocity.y) < 0.01) {
         p2Body.velocity.y = jumpForce;
@@ -212,8 +260,17 @@ function animate() {
     world.step(1 / 60);
     handleGameControls();
 
-    if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.quaternion.copy(p1Body.quaternion); }
-    if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.quaternion.copy(p2Body.quaternion); }
+    // Görsel modelleri fizik gövdelerinin pozisyonuna eşitliyoruz
+    if (p1Mesh) { 
+        p1Mesh.position.x = p1Body.position.x;
+        p1Mesh.position.z = p1Body.position.z;
+        p1Mesh.position.y = p1Body.position.y - 1.1; // Fizik merkezinden aşağı indirerek zemine basmasını sağladık
+    }
+    if (p2Mesh) { 
+        p2Mesh.position.x = p2Body.position.x;
+        p2Mesh.position.z = p2Body.position.z;
+        p2Mesh.position.y = p2Body.position.y - 1.1; // Robotun zemine tam oturma ayarı
+    }
 
     const midX = (p1Body.position.x + p2Body.position.x) / 2;
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, midX, 0.05);
