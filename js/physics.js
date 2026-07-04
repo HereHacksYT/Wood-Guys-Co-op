@@ -2,12 +2,12 @@ let world;
 
 export function initPhysics() {
     world = new CANNON.World();
-    world.gravity.set(0, -13, 0); // Karakterlerin havada süzülmesini engellemek için optimize edildi
+    world.gravity.set(0, -14, 0); 
 
     // Çimenlik Alan Fiziği
     const groundBody = new CANNON.Body({
         mass: 0,
-        shape: new CANNON.Box(new CANNON.Vec3(25, 0.2, 4))
+        shape: new CANNON.Box(new CANNON.Vec3(20, 0.2, 3))
     });
     groundBody.position.set(0, 0, 0);
     world.addBody(groundBody);
@@ -15,12 +15,11 @@ export function initPhysics() {
     // Toprak Alan Fiziği
     const dirtBody = new CANNON.Body({
         mass: 0,
-        shape: new CANNON.Box(new CANNON.Vec3(25, 2, 4))
+        shape: new CANNON.Box(new CANNON.Vec3(20, 1.5, 3))
     });
-    dirtBody.position.set(0, -2.2, 0);
+    dirtBody.position.set(0, -1.7, 0);
     world.addBody(dirtBody);
 
-    // Sürtünme Materyal Yapılandırması (Karakterlerin takılma sorununu tamamen ortadan kaldırır)
     const playerMaterial = new CANNON.Material("playerMat");
     const groundMaterial = new CANNON.Material("groundMat");
 
@@ -29,7 +28,7 @@ export function initPhysics() {
 
     const contactMat = new CANNON.ContactMaterial(playerMaterial, groundMaterial, {
         friction: 0.0,
-        restitution: 0.05
+        restitution: 0.02
     });
     world.addContactMaterial(contactMat);
 
@@ -42,15 +41,14 @@ export function createPhysicsPlayer(x, y, z) {
         material: new CANNON.Material("playerMat")
     });
     
-    // Alt kısım için takılmayı önleyen küre geometrisi
-    const sphereShape = new CANNON.Sphere(0.55);
-    body.addShape(sphereShape, new CANNON.Vec3(0, -0.55, 0));
+    // Takılma önleyici alt küre tabanı
+    const sphereShape = new CANNON.Sphere(0.5);
+    body.addShape(sphereShape, new CANNON.Vec3(0, -0.5, 0));
     
-    // Üst gövde kutusu
-    const boxShape = new CANNON.Box(new CANNON.Vec3(0.5, 0.6, 0.5));
+    const boxShape = new CANNON.Box(new CANNON.Vec3(0.45, 0.6, 0.45));
     body.addShape(boxShape, new CANNON.Vec3(0, 0.4, 0));
 
-    body.position.set(x, y, z);
+    body.position.set(x, y, z); // Tam hizalanma sağlandı
     body.fixedRotation = true;
     body.updateMassProperties();
     world.addBody(body);
