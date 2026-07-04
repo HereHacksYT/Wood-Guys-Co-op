@@ -2,22 +2,23 @@
 let scene, camera, renderer, world;
 let p1Mesh, p2Mesh, p1Body, p2Body;
 let groundMesh, dirtMesh, skyWallMesh;
+let finishMesh; // Bitiş Kapısı Görseli
 
-// Ayrı Can Sistemleri
+// Can Değerleri
 let p1Health = 100, p2Health = 100;
 
-// Oyun Durumu ve Bölümler
+// Oyun Durum Yönetimi
 let isGameStarted = false;
 let currentLevel = 1;
 let modelsLoadedCount = 0;
-let levelObjects = []; // Bölüme özel nesneler
+let levelObjects = []; 
 let enemies = [];
 
-// Taşıma Modu Durumları
+// Taşıma Modları
 let p1CarryMode = false;
 let p2CarryMode = false;
 
-// Çarpışma Grupları (İçinden geçme mekaniği için)
+// Çarpışma Maskeleme Katmanları
 const GROUP_PLAYER1 = 1 << 0;
 const GROUP_PLAYER2 = 1 << 1;
 const GROUP_STATIC = 1 << 2;
@@ -27,6 +28,7 @@ const GROUP_ENEMY = 1 << 3;
 const hitSound = new Audio('assets/audio/dragon-studio-sword-clashhit-393837.mp3');
 const fallSound = new Audio('assets/audio/freesound_community-body-falling-to-ground-1004474.mp3');
 
+// Kontroller verisi
 const inputs = {
     p1: { moveX: 0, jump: false },
     p2: { moveX: 0, jump: false }
@@ -44,7 +46,7 @@ function checkModelsReady() {
     }
 }
 
-// --- OYUN BAŞLANGICI ---
+// --- INITIALIZATION ---
 function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a1a);
@@ -65,11 +67,11 @@ function init() {
     dirLight.castShadow = true;
     scene.add(dirLight);
 
-    // Fizik Dünyası
+    // Fizik Altyapısı
     world = new CANNON.World();
     world.gravity.set(0, -14, 0);
 
-    // Zemin Tanımlamaları
+    // Ana Platform Zeminleri
     const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(25, 0.2, 3)) });
     groundBody.position.set(0, 0, 0);
     groundBody.collisionFilterGroup = GROUP_STATIC;
@@ -82,7 +84,7 @@ function init() {
     dirtBody.collisionFilterMask = GROUP_PLAYER1 | GROUP_PLAYER2 | GROUP_ENEMY;
     world.addBody(dirtBody);
 
-    // Görseller
+    // Çevre Modelleri Doku Yüklemesi
     const textureLoader = new THREE.TextureLoader();
     const skyTex = textureLoader.load('assets/textures/images.jpeg');
     skyWallMesh = new THREE.Mesh(new THREE.PlaneGeometry(50, 18), new THREE.MeshStandardMaterial({ map: skyTex, roughness: 0.6 }));
@@ -101,16 +103,29 @@ function init() {
     dirtMesh.position.y = -1.7; dirtMesh.receiveShadow = true;
     scene.add(dirtMesh);
 
-    // Oyuncu Fizik Gövdeleri
-    p1Body = createPhysicsPlayer(-6, 2, 0);
-    p2Body = createPhysicsPlayer(6, 2, 0);
+    // Bitiş Kapısı Tasarımı (Finish Gate - Sağ uca yerleştirildi)
+    const gateGroup = new THREE.Group();
+    const postGeo = new THREE.BoxGeometry(0.2, 3, 0.2);
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.9 });
+    
+    const leftPost = new THREE.Mesh(postGeo, woodMat); leftPost.position.set(-1.5, 1.5, 0); gateGroup.add(leftPost);
+    const rightPost = new THREE.Mesh(postGeo, woodMat); rightPost.position.set(1.5, 1.5, 0); gateGroup.add(rightPost);
+    
+    const boardGeo = new THREE.BoxGeometry(3.2, 0.8, 0.1);
+    const boardMesh = new THREE.Mesh(boardGeo, woodMat); boardMesh.position.set(0, 2.6, 0); gateGroup.add(boardMesh);
+    
+    gateGroup.position.set(14, 0, 0); // Sağ taraftaki bitiş noktası koordinatı
+    scene.add(gateGroup);
+    finishMesh = gateGroup;
 
-    // Varsayılan Çarpışma Filtreleri: Normalde oyuncular birbirini es geçer (Maskede birbirleri yok)
+    // Oyuncu Gövdeleri
+    p1Body = createPhysicsPlayer(-10, 2, 0);
+    p2Body = createPhysicsPlayer(-8, 2, 0);
     updateCollisionFilters();
 
     const loader = new THREE.GLTFLoader();
 
-    // 1. OYUNCU (Puppet)
+    // Player 1 (Puppet) GLB Yükleme
     loader.load('assets/models/puppet_1.glb', (gltf) => {
         p1Mesh = gltf.scene;
         p1Mesh.rotation.y = Math.PI / 2; 
@@ -123,7 +138,7 @@ function init() {
         scene.add(p1Mesh); checkModelsReady();
     });
 
-    // 2. OYUNCU (Soviet Robot)
+    // Player 2 (Soviet Robot) GLB Yükleme
     loader.load('assets/models/soviet_robot.glb', (gltf) => {
         p2Mesh = gltf.scene;
         p2Mesh.scale.set(0.5, 0.5, 0.5);
@@ -137,39 +152,31 @@ function init() {
         scene.add(p2Mesh); checkModelsReady();
     });
 
-    // Soviet Robot Duvar Kırma Algılayıcısı
+    // Soviet Çatlak Duvar Kırma Tetikleyicisi
     p2Body.addEventListener('collide', (e) => {
         if(e.body && e.body.isCrackable) {
-            // Çatlak duvarı patlat
             hitSound.play().catch(()=>{});
             removeLevelObject(e.body);
         }
     });
 
-    // Buton Dinleyicileri
     document.getElementById('play-btn').addEventListener('click', startGame);
     setupCarryButtons();
-
     setupTouchControls();
     window.addEventListener('resize', onWindowResize);
     buildLevel(1);
     animate();
 }
 
-// --- FİZİK FİLTRE GÜNCELLEME (İÇİNDEN GEÇME MANTIĞI) ---
+// --- CO-OP İÇİNDEN GEÇME KONTROLLERİ ---
 function updateCollisionFilters() {
-    // P1 Filtresi
     p1Body.collisionFilterGroup = GROUP_PLAYER1;
-    // Eğer P2 taşı modundaysa P1 ona çarpabilir, değilse içinden geçer
     p1Body.collisionFilterMask = GROUP_STATIC | GROUP_ENEMY | (p2CarryMode ? GROUP_PLAYER2 : 0);
 
-    // P2 Filtresi
     p2Body.collisionFilterGroup = GROUP_PLAYER2;
-    // Eğer P1 taşı modundaysa P2 ona çarpabilir, değilse içinden geçer
     p2Body.collisionFilterMask = GROUP_STATIC | GROUP_ENEMY | (p1CarryMode ? GROUP_PLAYER1 : 0);
 }
 
-// --- TAŞI BUTONLARI TETİKLEME ---
 function setupCarryButtons() {
     const btn1 = document.getElementById('p1-carry-btn');
     const btn2 = document.getElementById('p2-carry-btn');
@@ -191,34 +198,24 @@ function setupCarryButtons() {
     });
 }
 
-// --- BÖLÜM TASARIMLARI (DÜŞMAN VE ENGELLER) ---
+// --- DİNAMİK CO-OP BÖLÜM KURUCU ---
 function buildLevel(lvl) {
-    // Eski objeleri temizle
-    levelObjects.forEach(obj => {
-        scene.remove(obj.mesh);
-        world.remove(obj.body);
-    });
+    levelObjects.forEach(obj => { scene.remove(obj.mesh); world.remove(obj.body); });
     levelObjects = [];
-    enemies.forEach(en => {
-        scene.remove(en.mesh);
-        world.remove(en.body);
-    });
+    enemies.forEach(en => { scene.remove(en.mesh); world.remove(en.body); });
     enemies = [];
 
     const loader = new THREE.GLTFLoader();
 
     if (lvl === 1) {
-        // --- BÖLÜM 1: SOVIET İÇİN ÇATLAK DUVAR ---
-        const wallGeo = new THREE.BoxGeometry(1, 3, 4);
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0x8b7e66, roughness: 0.9, wireframe: false });
-        // Dokuda çatlak hissi yaratmak için basit çizgili materyal yardımı
-        const wallMesh = new THREE.Mesh(wallGeo, wallMat);
-        wallMesh.position.set(0, 1.5, 0);
-        scene.add(wallMesh);
+        // Bölüm 1: Soviet Kırılabilir Engeli
+        const wallGeo = new THREE.BoxGeometry(1.2, 3.2, 4);
+        const wallMesh = new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ color: 0x7a6b58, roughness: 0.9 }));
+        wallMesh.position.set(2, 1.6, 0); scene.add(wallMesh);
 
-        const wallBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(0.5, 1.5, 2)) });
-        wallBody.position.set(0, 1.5, 0);
-        wallBody.isCrackable = true; // Kırılabilir işareti
+        const wallBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(0.6, 1.6, 2)) });
+        wallBody.position.set(2, 1.6, 0);
+        wallBody.isCrackable = true;
         wallBody.collisionFilterGroup = GROUP_STATIC;
         wallBody.collisionFilterMask = GROUP_PLAYER1 | GROUP_PLAYER2;
         world.addBody(wallBody);
@@ -226,43 +223,39 @@ function buildLevel(lvl) {
         levelObjects.push({ mesh: wallMesh, body: wallBody });
 
     } else if (lvl === 2) {
-        // --- BÖLÜM 2: DÜŞMAN PUPPET (MAVİ) ---
-        // Yolun ortasına bir tane yapay zeka düşman atıyoruz
-        const enemyBody = new CANNON.Body({ mass: 2 });
-        enemyBody.addShape(new CANNON.Box(new CANNON.Vec3(0.4, 1, 0.4)));
-        enemyBody.position.set(0, 3, 0);
+        // Bölüm 2: Yakındaki Oyuncuyu Seçen Akıllı Düşman (Zıplaması Kilitli)
+        const enemyBody = new CANNON.Body({ mass: 5 });
+        enemyBody.addShape(new CANNON.Box(new CANNON.Vec3(0.45, 1.1, 0.45)));
+        enemyBody.position.set(1, 3, 0);
+        enemyBody.fixedRotation = true; // Dönüp devrilmesini önler
+        enemyBody.updateMassProperties();
         enemyBody.collisionFilterGroup = GROUP_ENEMY;
         enemyBody.collisionFilterMask = GROUP_STATIC | GROUP_PLAYER1 | GROUP_PLAYER2;
         world.addBody(enemyBody);
 
         loader.load('assets/models/puppet_1.glb', (gltf) => {
             const eMesh = gltf.scene;
-            // Düşmanı ayırt etmek için Koyu Mavi yapıyoruz
             eMesh.traverse(c => {
                 if(c.isMesh) {
                     c.material = c.material.clone();
-                    c.material.color.setHex(0x0a192f); // Gece mavisi / Koyu düşman rengi
+                    c.material.color.setHex(0x13294b); // Belirgin Koyu Lacivert Düşman Tonu
                 }
             });
-            eMesh.position.y = -1.0;
-            scene.add(eMesh);
-            enemies.push({ mesh: eMesh, body: enemyBody, dir: 1 });
+            eMesh.position.y = -1.0; scene.add(eMesh);
+            enemies.push({ mesh: eMesh, body: enemyBody });
         }, undefined, () => {
-            const eMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshStandardMaterial({ color: 0x0a192f }));
-            scene.add(eMesh);
-            enemies.push({ mesh: eMesh, body: enemyBody, dir: 1 });
+            const eMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2.2, 1), new THREE.MeshStandardMaterial({ color: 0x13294b }));
+            scene.add(eMesh); enemies.push({ mesh: eMesh, body: enemyBody });
         });
 
     } else if (lvl === 3) {
-        // --- BÖLÜM 3: TAKIM ÇALIŞMASI (YÜKSEK DUVAR) ---
-        // Sadece üst üste çıkılarak (TAŞI moduyla) geçilebilen yüksek engel
-        const highWallGeo = new THREE.BoxGeometry(1.5, 5, 5);
-        const highWallMesh = new THREE.Mesh(highWallGeo, new THREE.MeshStandardMaterial({ color: 0x4a4a4a }));
-        highWallMesh.position.set(0, 2.5, 0);
-        scene.add(highWallMesh);
+        // Bölüm 3: Sadece Kafa Kafaya Vererek Aşılabilen Büyük Duvar
+        const highWallGeo = new THREE.BoxGeometry(1.5, 4.8, 5);
+        const highWallMesh = new THREE.Mesh(highWallGeo, new THREE.MeshStandardMaterial({ color: 0x3d3d3d, roughness: 0.7 }));
+        highWallMesh.position.set(0, 2.4, 0); scene.add(highWallMesh);
 
-        const highWallBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(0.75, 2.5, 2.5)) });
-        highWallBody.position.set(0, 2.5, 0);
+        const highWallBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(0.75, 2.4, 2.5)) });
+        highWallBody.position.set(0, 2.4, 0);
         highWallBody.collisionFilterGroup = GROUP_STATIC;
         highWallBody.collisionFilterMask = GROUP_PLAYER1 | GROUP_PLAYER2;
         world.addBody(highWallBody);
@@ -280,30 +273,36 @@ function removeLevelObject(body) {
     }
 }
 
-// --- OYUNU BAŞLATMA ---
 function startGame() {
     isGameStarted = true;
     document.getElementById('menu-container').style.display = 'none';
-    
     document.getElementById('level-indicator').style.display = 'block';
-    document.getElementById('ui-container').style.display = 'block';
+    document.getElementById('p1-ui').style.display = 'block';
+    document.getElementById('p2-ui').style.display = 'block';
     
-    const controls = document.querySelectorAll('.joystick-zone, .action-btn, .carry-btn');
-    controls.forEach(el => el.style.display = 'block');
+    document.querySelectorAll('.joystick-zone, .action-btn, .carry-btn').forEach(el => el.style.display = 'block');
 
     if(p1Mesh) p1Mesh.rotation.y = Math.PI / 2;
     if(p2Mesh) p2Mesh.rotation.y = Math.PI / 2;
 }
 
-function nextLevel() {
-    currentLevel++;
-    if(currentLevel > 3) currentLevel = 1; // 3 bölümden sonra başa döner
-    document.getElementById('level-num').innerText = currentLevel;
-    
-    p1Body.position.set(-6, 3, 0); p1Body.velocity.set(0, 0, 0);
-    p2Body.position.set(6, 3, 0); p2Body.velocity.set(0, 0, 0);
+// --- BÖLÜM GEÇİŞ VE KONTROL SİSTEMİ ---
+function checkLevelComplete() {
+    // İki oyuncu birden kapıya (X: 14 koordinatına) yeterince yakın mı?
+    const p1Dist = Math.abs(p1Body.position.x - finishMesh.position.x);
+    const p2Dist = Math.abs(p2Body.position.x - finishMesh.position.x);
 
-    buildLevel(currentLevel);
+    if (p1Dist < 1.5 && p2Dist < 1.5) {
+        currentLevel++;
+        if(currentLevel > 3) currentLevel = 1; 
+        document.getElementById('level-num').innerText = currentLevel;
+        
+        // Pozisyonları en sola çekerek sıfırla
+        p1Body.position.set(-10, 3, 0); p1Body.velocity.set(0, 0, 0);
+        p2Body.position.set(-8, 3, 0); p2Body.velocity.set(0, 0, 0);
+
+        buildLevel(currentLevel);
+    }
 }
 
 function damagePlayer(playerNum, amount) {
@@ -316,22 +315,18 @@ function damagePlayer(playerNum, amount) {
     }
 
     if(p1Health <= 0 || p2Health <= 0) {
-        // Can biterse bölümü yeniden başlat
+        // Ölen olursa canları tazele ve bölüm başına at
         p1Health = 100; p2Health = 100;
         document.getElementById('p1-health').style.width = "100%";
         document.getElementById('p2-health').style.width = "100%";
-        currentLevel--; 
-        nextLevel();
+        p1Body.position.set(-10, 3, 0); p2Body.position.set(-8, 3, 0);
     }
 }
 
-// --- FİZİKSEL GÖVDE OLUŞTURUCU ---
 function createPhysicsPlayer(x, y, z) {
     const body = new CANNON.Body({ mass: 4 });
-    const sphereShape = new CANNON.Sphere(0.5);
-    body.addShape(sphereShape, new CANNON.Vec3(0, -0.5, 0));
-    const boxShape = new CANNON.Box(new CANNON.Vec3(0.45, 0.6, 0.45));
-    body.addShape(boxShape, new CANNON.Vec3(0, 0.4, 0));
+    body.addShape(new CANNON.Sphere(0.5), new CANNON.Vec3(0, -0.5, 0));
+    body.addShape(new CANNON.Box(new CANNON.Vec3(0.45, 0.6, 0.45)), new CANNON.Vec3(0, 0.4, 0));
     body.position.set(x, y, z);
     body.fixedRotation = true;
     body.updateMassProperties();
@@ -339,13 +334,13 @@ function createPhysicsPlayer(x, y, z) {
     return body;
 }
 
-// --- HAREKET KONTROLLERİ ---
+// --- DENGE VE HAREKET KONTROLÜ ---
 function handleGameControls() {
     if (!isGameStarted) return;
 
-    // Oyuncu 1 (Puppet) Denge Ayarları
+    // P1 Puppet Mekanikleri
     const p1Speed = 7;
-    const p1JumpForce = 9.5; // Daha yüksek zıplama gücü verildi!
+    const p1JumpForce = 9.5; 
 
     if (inputs.p1.moveX !== 0) {
         p1Body.velocity.x = inputs.p1.moveX * p1Speed;
@@ -353,15 +348,13 @@ function handleGameControls() {
     } else {
         p1Body.velocity.x = 0;
     }
-
     if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 0.02) {
-        p1Body.velocity.y = p1JumpForce;
-        inputs.p1.jump = false;
+        p1Body.velocity.y = p1JumpForce; inputs.p1.jump = false;
     }
 
-    // Oyuncu 2 (Soviet Robot) Denge Ayarları
-    const p2Speed = 4.8; // Daha da yavaşlatıldı (Ağır kütle hissi)
-    const p2JumpForce = 5.5; // Zıplama gücü düşürüldü!
+    // P2 Soviet Robot Mekanikleri (Ağır ve Güçlü)
+    const p2Speed = 4.8;
+    const p2JumpForce = 5.5; 
 
     if (inputs.p2.moveX !== 0) {
         p2Body.velocity.x = inputs.p2.moveX * p2Speed;
@@ -369,19 +362,19 @@ function handleGameControls() {
     } else {
         p2Body.velocity.x = 0;
     }
-
     if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 0.02) {
-        p2Body.velocity.y = p2JumpForce;
-        inputs.p2.jump = false;
+        p2Body.velocity.y = p2JumpForce; inputs.p2.jump = false;
     }
 
-    // Dünyadan aşağı düşme kontrolü
+    // Haritadan Düşme Kontrolü
     if (p1Body.position.y < -5 || p2Body.position.y < -5) {
-        nextLevel();
+        p1Body.position.set(-10, 3, 0); p2Body.position.set(-8, 3, 0);
     }
+
+    checkLevelComplete();
 }
 
-// --- DOKUNMATİK JOSTICK KURULUMLARI ---
+// --- DOKUNMATİK JOSTICK ALTYAPISI ---
 function setupTouchControls() {
     setupSingleJoystick('p1-joystick-zone', 'p1-joystick-stick', (x) => { inputs.p1.moveX = x; });
     document.getElementById('p1-action-btn').addEventListener('touchstart', () => { inputs.p1.jump = true; });
@@ -400,8 +393,7 @@ function setupSingleJoystick(zoneId, stickId, callback) {
 
     zone.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; });
     zone.addEventListener('touchmove', (e) => {
-        const touchX = e.touches[0].clientX;
-        let deltaX = touchX - startX;
+        let deltaX = e.touches[0].clientX - startX;
         deltaX = Math.max(-28, Math.min(28, deltaX));
         stick.style.transform = `translateX(${deltaX}px)`;
         callback(deltaX / 28);
@@ -409,7 +401,7 @@ function setupSingleJoystick(zoneId, stickId, callback) {
     zone.addEventListener('touchend', () => { stick.style.transform = `translate(0px,0px)`; callback(0); });
 }
 
-// --- MOTOR DÖNGÜSÜ ---
+// --- ANA DÖNGÜ (ANIMATE) ---
 function animate() {
     requestAnimationFrame(animate);
 
@@ -417,43 +409,38 @@ function animate() {
         world.step(1 / 60);
         handleGameControls();
 
-        // Model senkronizasyonu (0.1 yükseltilmiş tam basma konumu)
-        if (p1Mesh) { 
-            p1Mesh.position.x = p1Body.position.x;
-            p1Mesh.position.z = p1Body.position.z;
-            p1Mesh.position.y = p1Body.position.y - 1.0; 
-        }
-        if (p2Mesh) { 
-            p2Mesh.position.x = p2Body.position.x;
-            p2Mesh.position.z = p2Body.position.z;
-            p2Mesh.position.y = p2Body.position.y - 1.0; 
-        }
+        if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 1.0; }
+        if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 1.0; }
 
-        // --- YAPAY ZEKA DÜŞMAN HAREKETLERİ (Bölüm 2) ---
+        // --- AKILLI DÜŞMAN YAPAY ZEKASI (EN YAKIN HEDEFİ SEÇME) ---
         enemies.forEach(en => {
             if(en.mesh && en.body) {
-                en.mesh.position.x = en.body.position.x;
-                en.mesh.position.y = en.body.position.y - 1.0;
-                en.mesh.position.z = en.body.position.z;
+                en.mesh.position.copy(en.body.position);
+                en.mesh.position.y -= 1.0;
 
-                // Basit yapay zeka: En yakın oyuncuya doğru yürür
-                const targetX = p1Body.position.x; 
-                const diffX = targetX - en.body.position.x;
-                en.body.velocity.x = Math.sign(diffX) * 2.5;
+                // İki oyuncuya olan mesafeyi ölç ve en yakın olanı seç
+                const distToP1 = Math.abs(p1Body.position.x - en.body.position.x);
+                const distToP2 = Math.abs(p2Body.position.x - en.body.position.x);
+                const targetBody = (distToP1 < distToP2) ? p1Body : p2Body;
+                const targetNum = (distToP1 < distToP2) ? 1 : 2;
+
+                // Seçilen en yakın oyuncuya doğru yatay ilerleme (Zıplama engelli, Y hızı elenmedi)
+                const diffX = targetBody.position.x - en.body.position.x;
+                en.body.velocity.x = Math.sign(diffX) * 2.3; 
                 en.mesh.rotation.y = en.body.velocity.x > 0 ? Math.PI / 2 : -Math.PI / 2;
 
-                // Oyuncuya çok yaklaşırsa can azaltma
-                if(Math.abs(p1Body.position.x - en.body.position.x) < 0.8) damagePlayer(1, 0.5);
-                if(Math.abs(p2Body.position.x - en.body.position.x) < 0.8) damagePlayer(2, 0.5);
+                // Yakın temas hasar denetimi
+                if(Math.abs(p1Body.position.x - en.body.position.x) < 0.8 && Math.abs(p1Body.position.y - en.body.position.y) < 1.2) damagePlayer(1, 0.4);
+                if(Math.abs(p2Body.position.x - en.body.position.x) < 0.8 && Math.abs(p2Body.position.y - en.body.position.y) < 1.2) damagePlayer(2, 0.4);
             }
         });
 
     } else {
-        // Menüde dönme animasyonu
         if (p1Mesh) p1Mesh.rotation.y += 0.02;
         if (p2Mesh) p2Mesh.rotation.y += 0.02;
     }
 
+    // Kamera Takip Mekanizması
     const midX = (p1Body.position.x + p2Body.position.x) / 2;
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, midX, 0.05);
     camera.lookAt(midX, 2, 0);
