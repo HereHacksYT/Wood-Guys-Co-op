@@ -12,12 +12,11 @@ const fallSound = new Audio('assets/audio/freesound_community-body-falling-to-gr
 function init() {
     scene = new THREE.Scene();
 
-    // 1. images.jpeg'i Gökyüzü Arka Planı Yapma
     const textureLoader = new THREE.TextureLoader();
     textureLoader.load('assets/textures/images.jpeg', (skyTex) => {
         scene.background = skyTex;
     }, undefined, () => {
-        scene.background = new THREE.Color(0x87CEEB); // Hata durumunda koruma rengi
+        scene.background = new THREE.Color(0x87CEEB);
     });
 
     camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -30,9 +29,9 @@ function init() {
 
     setupTouchControls();
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
     dirLight.position.set(5, 15, 7);
     dirLight.castShadow = true;
     scene.add(dirLight);
@@ -73,7 +72,7 @@ function init() {
 
     const loader = new GLTFLoader();
 
-    // Mavi Oyuncu (puppet_1.glb)
+    // 1. Oyuncu: Tahta Kukla (puppet_1.glb)
     loader.load('assets/models/puppet_1.glb', (gltf) => {
         p1Mesh = gltf.scene;
         p1Mesh.traverse(c => { if(c.isMesh) c.castShadow = true; });
@@ -83,20 +82,15 @@ function init() {
         scene.add(p1Mesh);
     });
 
-    // Kırmızı Oyuncu (soviet_robot.glb veya puppet_2.glb)
+    // 2. Oyuncu: SOVIET ROBOT (soviet_robot.glb)
     loader.load('assets/models/soviet_robot.glb', (gltf) => {
         p2Mesh = gltf.scene;
         p2Mesh.traverse(c => { if(c.isMesh) c.castShadow = true; });
         scene.add(p2Mesh);
     }, undefined, () => {
-        // Eğer soviet_robot.glb yüklenmezse puppet_2.glb dene
-        loader.load('assets/models/puppet_2.glb', (gltf) => {
-            p2Mesh = gltf.scene;
-            scene.add(p2Mesh);
-        }, undefined, () => {
-            p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.4, 1.2), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
-            scene.add(p2Mesh);
-        });
+        // Yedek hata koruması
+        p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.4, 1.2), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
+        scene.add(p2Mesh);
     });
 
     // Çarpışma Sesleri
@@ -115,6 +109,7 @@ function animate() {
     world.step(1 / 60);
     handleControls(p1Body, p2Body);
 
+    // Görsel modeli fiziksel gövde merkezine eşitle (Yumuşatılmış kayma ofseti dahil)
     if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.quaternion.copy(p1Body.quaternion); }
     if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.quaternion.copy(p2Body.quaternion); }
 
