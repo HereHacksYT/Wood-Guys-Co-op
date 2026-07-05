@@ -1,5 +1,5 @@
 // --- GLOBAL DEĞİŞKENLER ---
-let scene, camera, renderer, world, controls;
+let scene, camera, renderer, world;
 let p1Mesh, p2Mesh, p1Body, p2Body, finishMesh; 
 let isGameStarted = false;
 let modelsLoadedCount = 0;
@@ -7,19 +7,15 @@ let levelObjects = [];
 let lastTime = performance.now();
 let activeTouches = {};
 
+// Oyuncuların haritaya oturacağı başlangıç koordinatları (Senin bulduğun değerler)
+const START_X = 175.7;
+const START_Y = 422.0; // Yükseklikten düşüp zemine otursunlar diye Y'yi biraz yukarıda başlattık
+const START_Z = 2303.7;
+
 const inputs = {
     p1: { moveX: 0, moveZ: 0, jump: false },
     p2: { moveX: 0, moveZ: 0, jump: false }
 };
-
-// Ekrandaki Koordinat Paneli
-let coordDiv;
-function createMobileUI() {
-    coordDiv = document.createElement('div');
-    coordDiv.style = "position:absolute; top:10px; left:10px; color:white; background:rgba(0,0,0,0.7); padding:12px; border-radius:6px; font-size:13px; z-index:9999; pointer-events:none; font-family:monospace; line-height:1.5;";
-    coordDiv.innerHTML = "Kamera koordinatları bekleniyor...";
-    document.body.appendChild(coordDiv);
-}
 
 function checkModelsReady() {
     modelsLoadedCount++;
@@ -31,52 +27,38 @@ function checkModelsReady() {
 
 // --- INITIALIZATION ---
 function init() {
-    createMobileUI();
-    
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb); // Gökyüzü mavisi
 
-    // 1. DÜZELTME: Görüş mesafesini (uzaktaki nesneleri yükleme sınırını) 2000'den 5000'e çıkardık.
+    // Kamera görüş mesafesi uzaktaki haritayı kaçırmamak için 5000'de kalıyor
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000);
-    camera.position.set(0, 40, 80); // Haritayı daha da geniş görebilmek için kamerayı daha uzakta başlattık
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // 📱 MOBİL PARMAK KONTROLÜ
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    // Uzaklaşma sınırını da arttırdık ki parmağınla ekranı kıstığında çok daha geriye gidebil
-    controls.maxDistance = 3000; 
-
-    // Işıklar
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+    // Işıklandırma (Haritayı aydınlatmak için konumunu senin koordinatlarına yaklaştırdık)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
     scene.add(ambientLight);
     
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(50, 100, 50);
+    dirLight.position.set(START_X + 20, START_Y + 50, START_Z + 20);
     scene.add(dirLight);
-
-    // 🌐 BÜYÜTÜLMÜŞ YARDIMCI IZGARA
-    // Haritayı uzaktan ararken yönünü kaybetme diye kılavuz çizgilerin boyutunu 1000 yaptık
-    const grid = new THREE.GridHelper(1000, 100, 0xffffff, 0x555555);
-    grid.position.y = -0.05;
-    scene.add(grid);
 
     // Fizik Dünyası
     world = new CANNON.World();
-    world.gravity.set(0, -15, 0);
+    world.gravity.set(0, -16, 0);
 
     const playerMat = new CANNON.Material("playerMat");
     
-    p1Body = createPhysicsPlayer(-2, 8, 0, playerMat);
-    p2Body = createPhysicsPlayer(2, 8, 0, playerMat);
+    // Karakterleri tam olarak bulduğun harita koordinatlarında yan yana doğuruyoruz
+    p1Body = createPhysicsPlayer(START_X - 1.5, START_Y, START_Z, playerMat);
+    p2Body = createPhysicsPlayer(START_X + 1.5, START_Y, START_Z, playerMat);
 
     const loader = new THREE.GLTFLoader();
     
+    // P1 Oyuncu Modelini Yükle
     loader.load('assets/models/puppet_1.glb', (gltf) => {
         p1Mesh = gltf.scene;
         scene.add(p1Mesh);
@@ -86,6 +68,7 @@ function init() {
         scene.add(p1Mesh); checkModelsReady();
     });
 
+    // P2 Oyuncu Modelini Yükle
     loader.load('assets/models/soviet_robot.glb', (gltf) => {
         p2Mesh = gltf.scene;
         p2Mesh.scale.set(0.5, 0.5, 0.5);
@@ -136,8 +119,13 @@ function loadGLBMap() {
             }
         });
     }, undefined, (e) => {
-        console.log("Harita bulunamadı! assets/models/harita1.glb yolunu kontrol et.");
+        console.log("Harita yüklenemedi, dosya yolunu kontrol et!");
     });
+
+    // Bitiş çizgisini de haritanın derinliğine göre ileriye kuruyoruz (Örn: Mevcut Z'den 100 birim ileri)
+    finishMesh = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 2), new THREE.MeshBasicMaterial({ visible: false }));
+    finishMesh.position.set(START_X, START_Y, START_Z - 100); 
+    scene.add(finishMesh);
 }
 
 function createPhysicsPlayer(x, y, z, mat) {
@@ -150,13 +138,8 @@ function createPhysicsPlayer(x, y, z, mat) {
 }
 
 function setupTouchControls() {
-    setupJoystick('p1-joystick-zone', 'p1-joystick-stick', (x, z) => {
-        inputs.p1.moveX = x; inputs.p1.moveZ = z;
-    });
-    setupJoystick('p2-joystick-zone', 'p2-joystick-stick', (x, z) => {
-        inputs.p2.moveX = x; inputs.p2.moveZ = z;
-    });
-
+    setupJoystick('p1-joystick-zone', 'p1-joystick-stick', (x, z) => { inputs.p1.moveX = x; inputs.p1.moveZ = z; });
+    setupJoystick('p2-joystick-zone', 'p2-joystick-stick', (x, z) => { inputs.p2.moveX = x; inputs.p2.moveZ = z; });
     document.getElementById('p1-action-btn').addEventListener('touchstart', (e) => { e.preventDefault(); inputs.p1.jump = true; });
     document.getElementById('p2-action-btn').addEventListener('touchstart', (e) => { e.preventDefault(); inputs.p2.jump = true; });
 }
@@ -181,13 +164,9 @@ function setupJoystick(zId, sId, cb) {
             if(e.touches[i].identifier === tData.id) {
                 let dx = e.touches[i].clientX - tData.x;
                 let dy = e.touches[i].clientY - tData.y;
-                
                 const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 30);
                 const angle = Math.atan2(dy, dx);
-                
-                dx = Math.cos(angle) * dist;
-                dy = Math.sin(angle) * dist;
-                
+                dx = Math.cos(angle) * dist; dy = Math.sin(angle) * dist;
                 stick.style.transform = `translate(${dx}px, ${dy}px)`;
                 cb(dx/30, dy/30);
                 break;
@@ -195,13 +174,13 @@ function setupJoystick(zId, sId, cb) {
         }
     });
 
-    const endHandle = (e) => {
-        stick.style.transform = `translate(0px, 0px)`;
-        cb(0, 0);
-        delete activeTouches[zId];
-    };
-    zone.addEventListener('touchend', endHandle);
-    zone.addEventListener('touchcancel', endHandle);
+    const endHandle = (e) => { stick.style.transform = `translate(0px, 0px)`; cb(0, 0); delete activeTouches[zId]; };
+    zone.addEventListener('touchend', endHandle); zone.addEventListener('touchcancel', endHandle);
+}
+
+function resetPlayerToStart() {
+    p1Body.position.set(START_X - 1.5, START_Y, START_Z); p1Body.velocity.set(0,0,0);
+    p2Body.position.set(START_X + 1.5, START_Y, START_Z); p2Body.velocity.set(0,0,0);
 }
 
 // --- MAIN LOOP ---
@@ -222,30 +201,30 @@ function animate() {
         p2Body.velocity.x = inputs.p2.moveX * speed;
         p2Body.velocity.z = inputs.p2.moveZ * speed;
 
-        if(inputs.p1.jump && Math.abs(p1Body.velocity.y) < 0.1) { p1Body.velocity.y = 9.5; inputs.p1.jump = false; }
-        if(inputs.p2.jump && Math.abs(p2Body.velocity.y) < 0.1) { p2Body.velocity.y = 9.5; inputs.p2.jump = false; }
+        if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 0.1) { p1Body.velocity.y = 9.5; inputs.p1.jump = false; }
+        if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 0.1) { p2Body.velocity.y = 9.5; inputs.p2.jump = false; }
 
-        if(p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 1; }
-        if(p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 1; }
+        if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 1; }
+        if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 1; }
 
-        if(p1Body.position.y < -100 || p2Body.position.y < -100) {
-            p1Body.position.set(-2, 8, 0); p1Body.velocity.set(0,0,0);
-            p2Body.position.set(2, 8, 0); p2Body.velocity.set(0,0,0);
+        // Haritadan aşağı düşme sınırı (Zeminin Y: 415 civarı olduğunu düşünürsek 350'nin altına düşerse canlanır)
+        if (p1Body.position.y < 350 || p2Body.position.y < 350) {
+            resetPlayerToStart();
         }
     }
 
-    // 2. DÜZELTME: Artık panelde karakterin değil, bizzat aktif KAMERANIN koordinatları yazıyor
-    if(coordDiv && camera) {
-        coordDiv.innerHTML = `
-            <b>🎥 KAMERA DEDEKTÖRÜ</b><br>
-            Kamera X: ${camera.position.x.toFixed(1)}<br>
-            Kamera Y: ${camera.position.y.toFixed(1)} (Yükseklik)<br>
-            Kamera Z: ${camera.position.z.toFixed(1)}<br>
-            <span style="color:#00ff00; font-size:11px;">* Parmağını kaydırdıkça kameranın yerini görebilirsin.</span>
-        `;
-    }
+    // 🎥 OYUN İÇİ KAMERA TAKİBİ 
+    // İki oyuncunun tam ortasını arkadan takip edecek şekilde kurgulandı
+    const midX = (p1Body.position.x + p2Body.position.x) / 2;
+    const midY = (p1Body.position.y + p2Body.position.y) / 2;
+    const midZ = (p1Body.position.z + p2Body.position.z) / 2;
 
-    if(controls) controls.update();
+    camera.position.x = THREE.MathUtils.lerp(camera.position.x, midX, 0.05);
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 6, 0.05);   // Karakterlerin 6 birim üstünden bakar
+    camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 12, 0.05); // Karakterlerin 12 birim gerisinden takip eder
+
+    camera.lookAt(midX, midY + 1, midZ - 4); // İleriye, patikaya doğru odaklanır
+
     renderer.render(scene, camera);
 }
 
