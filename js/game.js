@@ -11,11 +11,14 @@ let modelsLoadedCount = 0;
 let levelObjects = []; 
 let enemies = [];
 
+// Delta Zaman Sabitleyici (Yüksek Hz ekranlarda Flash olmayı engeller)
+let lastTime = performance.now();
+
 // Bölüm 3 için Takım Çalışması Buton ve Duvar Referansları
 let lvl3ButtonMesh, lvl3ButtonBody;
 let lvl3GateMesh, lvl3GateBody;
 let isLvl3GateOpen = false;
-let targetGateY = 2.5; // Duvarın hedef Y pozisyonu (Animasyon için)
+let targetGateY = 2.5; 
 
 let p1LastDamageTime = 0;
 let p2LastDamageTime = 0;
@@ -30,6 +33,9 @@ const GROUP_PLAYER1 = 1 << 0;
 const GROUP_PLAYER2 = 1 << 1;
 const GROUP_STATIC = 1 << 2;
 const GROUP_ENEMY = 1 << 3;
+
+// Sürtünmesiz malzeme global tanımı
+let zeroFrictionMaterial;
 
 const hitSound = new Audio('assets/audio/dragon-studio-sword-clashhit-393837.mp3');
 const fallSound = new Audio('assets/audio/freesound_community-body-falling-to-ground-1004474.mp3');
@@ -71,11 +77,12 @@ function init() {
     world = new CANNON.World();
     world.gravity.set(0, -14, 0);
 
-    const zeroFrictionMaterial = new CANNON.Material("zeroFriction");
+    // Sürtünmesiz malzeme ayarı (Karakterlerin takılmasını/sürtünmesini önler)
+    zeroFrictionMaterial = new CANNON.Material("zeroFriction");
     const contactMaterial = new CANNON.ContactMaterial(
         zeroFrictionMaterial,
         zeroFrictionMaterial,
-        { friction: 0.0, restitution: 0.1 }
+        { friction: 0.0, restitution: 0.0 }
     );
     world.addContactMaterial(contactMaterial);
 
@@ -268,7 +275,7 @@ function buildLevel(lvl) {
         const wallMesh = new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ color: 0x7a6b58, roughness: 0.9 }));
         wallMesh.position.set(2, 1.6, 0); scene.add(wallMesh);
 
-        const wallBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(0.6, 1.6, 2)) });
+        const wallBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(0.6, 1.6, 2)), material: zeroFrictionMaterial });
         wallBody.position.set(2, 1.6, 0);
         wallBody.isCrackable = true;
         wallBody.collisionFilterGroup = GROUP_STATIC;
@@ -279,7 +286,7 @@ function buildLevel(lvl) {
 
     } else if (lvl === 2) {
         finishTargetY = 0;
-        const enemyBody = new CANNON.Body({ mass: 5 });
+        const enemyBody = new CANNON.Body({ mass: 5, material: zeroFrictionMaterial });
         enemyBody.addShape(new CANNON.Box(new CANNON.Vec3(0.45, 1.1, 0.45)));
         enemyBody.position.set(1, 3, 0);
         enemyBody.fixedRotation = true;
@@ -301,28 +308,37 @@ function buildLevel(lvl) {
     } else if (lvl === 3) {
         finishTargetY = 2.5; 
 
-        // Büyük Takım Duvarı
+        // 3. Bölüm Takım Çalışması Duvarı
         const gateGeo = new THREE.BoxGeometry(1.0, 5.0, 4);
         lvl3GateMesh = new THREE.Mesh(gateGeo, new THREE.MeshStandardMaterial({ color: 0x3d3d3d, roughness: 0.7 }));
         lvl3GateMesh.position.set(0, 2.5, 0); scene.add(lvl3GateMesh);
 
-        lvl3GateBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(0.5, 2.5, 2)) });
+        lvl3GateBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(0.5, 2.5, 2)), material: zeroFrictionMaterial });
         lvl3GateBody.position.set(0, 2.5, 0);
         lvl3GateBody.collisionFilterGroup = GROUP_STATIC;
         lvl3GateBody.collisionFilterMask = GROUP_PLAYER1 | GROUP_PLAYER2;
         world.addBody(lvl3GateBody);
 
-        // DÜZELTME: Buton plakasını zemin yüzeyine tam oturtmak için Y değerini 0.3 yaptık.
-        const btnGeo = new THREE.BoxGeometry(1.5, 0.3, 1.5);
-        lvl3ButtonMesh = new THREE.Mesh(btnGeo, new THREE.MeshStandardMaterial({ color: 0x22c55e }));
-        lvl3ButtonMesh.position.set(4, 0.15, 0); 
-        scene.add(lvl3ButtonMesh);
-
-        lvl3ButtonBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(0.75, 0.15, 0.75)) });
-        lvl3ButtonBody.position.set(4, 0.15, 0);
+        // FİZİKSEL BUTON ALANI (Çarpışma bölgesi)
+        lvl3ButtonBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(1.0, 0.2, 1.0)), material: zeroFrictionMaterial });
+        lvl3ButtonBody.position.set(4, 0.1, 0);
         lvl3ButtonBody.collisionFilterGroup = GROUP_STATIC;
         lvl3ButtonBody.collisionFilterMask = GROUP_PLAYER1 | GROUP_PLAYER2;
         world.addBody(lvl3ButtonBody);
+
+        // YENİ: GLB BUTON MODELİ YÜKLEME
+        loader.load('assets/models/buton.glb', (gltf) => {
+            lvl3ButtonMesh = gltf.scene;
+            lvl3ButtonMesh.position.set(4, 0.0, 0);
+            lvl3ButtonMesh.scale.set(0.6, 0.6, 0.6); // Boyut ayarlaması gerekirse buradan değiştirilebilir
+            scene.add(lvl3ButtonMesh);
+        }, undefined, () => {
+            // Model yoksa eski yedek yeşil kutu
+            const btnGeo = new THREE.BoxGeometry(1.5, 0.3, 1.5);
+            lvl3ButtonMesh = new THREE.Mesh(btnGeo, new THREE.MeshStandardMaterial({ color: 0x22c55e }));
+            lvl3ButtonMesh.position.set(4, 0.15, 0); 
+            scene.add(lvl3ButtonMesh);
+        });
     }
 
     // --- BİTİŞ KAPISI VE GEÇİLEBİLİRLİK BLOKLARI ---
@@ -346,7 +362,7 @@ function buildLevel(lvl) {
         platformMesh.position.set(14, finishTargetY / 2, 0);
         scene.add(platformMesh);
 
-        const platformBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(1.75, finishTargetY / 2, 2)) });
+        const platformBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(1.75, finishTargetY / 2, 2)), material: zeroFrictionMaterial });
         platformBody.position.set(14, finishTargetY / 2, 0);
         platformBody.collisionFilterGroup = GROUP_STATIC;
         platformBody.collisionFilterMask = GROUP_PLAYER1 | GROUP_PLAYER2;
@@ -471,29 +487,35 @@ function setupSingleJoystick(zoneId, stickId, callback) {
 function animate() {
     requestAnimationFrame(animate);
 
+    // FIX: Yüksek Hz tabletler için sabit zaman adımı (Flash olmama düzeltmesi)
+    const currentTime = performance.now();
+    const dt = Math.min((currentTime - lastTime) / 1000, 0.1); 
+    lastTime = currentTime;
+
     if (isGameStarted) {
-        world.step(1 / 60);
+        // Sabit zaman dilimiyle fizik adımını atıyoruz
+        world.step(1 / 60, dt, 3);
         handleGameControls();
 
         if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 1.0; }
         if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 1.0; }
 
-        // --- BÖLÜM 3: TAKIM BUTONU VE KAPI ANIMASYONU ---
-        if (currentLevel === 3 && lvl3ButtonMesh && lvl3GateMesh) {
-            const p1OnBtn = Math.abs(p1Body.position.x - lvl3ButtonBody.position.x) < 0.9 && Math.abs(p1Body.position.y - lvl3ButtonBody.position.y) < 0.6;
-            const p2OnBtn = Math.abs(p2Body.position.x - lvl3ButtonBody.position.x) < 0.9 && Math.abs(p2Body.position.y - lvl3ButtonBody.position.y) < 0.6;
+        // --- BÖLÜM 3: GARANTİLENMİŞ TAKIM BUTONU TETİKLEMESİ ---
+        if (currentLevel === 3 && lvl3ButtonBody && lvl3GateMesh) {
+            const p1OnBtn = Math.abs(p1Body.position.x - lvl3ButtonBody.position.x) < 1.3 && Math.abs(p1Body.position.y - lvl3ButtonBody.position.y) < 0.8;
+            const p2OnBtn = Math.abs(p2Body.position.x - lvl3ButtonBody.position.x) < 1.3 && Math.abs(p2Body.position.y - lvl3ButtonBody.position.y) < 0.8;
 
             if (p1OnBtn || p2OnBtn) {
                 if(!isLvl3GateOpen) {
                     isLvl3GateOpen = true;
-                    lvl3ButtonMesh.material.color.setHex(0xef4444); // Basılınca kırmızı olur
-                    targetGateY = -3.0; // Kapıyı yerin altına çek
-                    // Fizik motorundan çarpışmayı kaldır
-                    world.remove(lvl3GateBody);
+                    // Eğer küp kullanılıyorsa rengini değiştir
+                    if(lvl3ButtonMesh.material) lvl3ButtonMesh.material.color.setHex(0xef4444); 
+                    targetGateY = -3.5; 
+                    world.remove(lvl3GateBody); // Çarpışmayı kaldır
                 }
             }
             
-            // Pürüzsüz kapı açılma animasyonu (Lerp)
+            // Engelin pürüzsüzce kayma animasyonu
             lvl3GateMesh.position.y = THREE.MathUtils.lerp(lvl3GateMesh.position.y, targetGateY, 0.1);
         }
 
@@ -507,7 +529,9 @@ function animate() {
                 const targetBody = (distToP1 < distToP2) ? p1Body : p2Body;
 
                 const diffX = targetBody.position.x - en.body.position.x;
-                en.body.velocity.x = Math.sign(diffX) * 2.3; 
+                
+                // DÜZELTME: Robotun hızı yavaş olan şişman (Soviet) karaktere eşitlendi (4.8)
+                en.body.velocity.x = Math.sign(diffX) * 4.8; 
                 en.mesh.rotation.y = en.body.velocity.x > 0 ? Math.PI / 2 : -Math.PI / 2;
 
                 if(Math.abs(p1Body.position.x - en.body.position.x) < 0.7 && Math.abs(p1Body.position.y - en.body.position.y) < 1.0) {
