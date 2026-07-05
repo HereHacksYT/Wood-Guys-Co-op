@@ -2,129 +2,132 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=landscape">
-    <title>Wood Guys Co-Op</title>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Here Wars Mobile</title>
     <style>
-        body, html {
-            margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%;
-            background-color: #000; user-select: none; -webkit-user-select: none;
+        /* Telefon ekranında kaydırma ve çift tıklama yakınlaştırmasını kapatıyoruz */
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            background-color: #000;
         }
-        canvas { display: block; width: 100%; height: 100%; }
 
-        /* MENÜ ARAYÜZÜ */
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Menü Konteyneri */
         #menu-container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.5); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 100; font-family: Arial, sans-serif;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(20, 20, 20, 0.9);
+            z-index: 2000;
+            font-family: sans-serif;
+            color: white;
         }
-        #loading-text { color: #fff; font-size: 24px; text-shadow: 2px 2px #000; margin-bottom: 20px; }
+
         #play-btn {
-            display: none; padding: 15px 45px; font-size: 28px; font-weight: bold;
-            color: #5c3a21; background-color: #d7a15c; border: 6px solid #8b5a2b;
-            border-radius: 12px; box-shadow: 0px 6px 0px #5c3a21; cursor: pointer;
+            display: none;
+            padding: 15px 40px;
+            font-size: 24px;
+            background-color: #22c55e;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #15803d;
         }
 
-        /* ÜST PANEL */
-        #level-indicator {
-            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            background: #d7a15c; border: 4px solid #8b5a2b; color: #5c3a21;
-            padding: 6px 24px; font-weight: bold; font-size: 20px; border-radius: 10px;
-            z-index: 50; display: none; box-shadow: 0px 4px 0px #5c3a21; font-family: Arial, sans-serif;
+        #play-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 #15803d;
         }
 
-        /* CAN BARLARI */
-        .player-ui {
-            position: absolute; top: 15px; width: 160px; background: rgba(0, 0, 0, 0.6);
-            border: 3px solid #8b5a2b; border-radius: 8px; padding: 8px; color: #fff;
-            font-family: Arial, sans-serif; z-index: 50; display: none;
+        #loading-text {
+            font-size: 20px;
+            color: #a8a29e;
         }
-        #p1-ui { left: 20px; border-color: #3b82f6; }
-        #p2-ui { right: 20px; border-color: #ef4444; }
-        .player-ui h2 { margin: 0 0 5px 0; font-size: 14px; text-align: center; }
-        .health-bar { width: 100%; height: 14px; background: #333; border-radius: 4px; overflow: hidden; border: 1px solid #000; }
-        #p1-health { height: 100%; background: #3b82f6; width: 100%; transition: width 0.2s; }
-        #p2-health { height: 100%; background: #ef4444; width: 100%; transition: width 0.2s; }
 
-        /* MOBİL DOKUNMATİK KONTROLLER */
-        .player-controls-container { display: none; }
-        .joystick-zone { position: absolute; bottom: 15px; width: 100px; height: 100px; z-index: 40; }
-        .bottom-left { left: 20px; }
-        .bottom-right { right: 20px; }
-        .joystick-base { width: 100%; height: 100%; background: rgba(255,255,255,0.15); border: 3px solid rgba(255,255,255,0.4); border-radius: 50%; display: flex; justify-content: center; align-items: center; }
-        .joystick-stick { width: 40px; height: 40px; background: rgba(255,255,255,0.7); border-radius: 50%; }
+        /* Arayüz ve Kontroller */
+        .joystick-zone {
+            position: absolute;
+            bottom: 30px;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            z-index: 1000;
+            display: none;
+        }
+
+        .joystick-stick {
+            position: absolute;
+            top: 30px; left: 30px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            transition: transform 0.05s linear;
+        }
 
         .action-btn {
-            position: absolute; top: 50%; transform: translateY(-50%);
-            width: 85px; height: 85px; background: #a67c52; border: 4px solid #5c3a21;
-            color: #fff; font-weight: bold; font-size: 16px; border-radius: 50%;
-            z-index: 40; box-shadow: 0px 5px 0px #362213;
+            position: absolute;
+            bottom: 45px;
+            width: 70px;
+            height: 70px;
+            background: rgba(180, 140, 90, 0.7);
+            border: 3px solid #fff;
+            border-radius: 50%;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
         }
-        .top-left-btn { left: 140px; }
-        .top-right-btn { right: 140px; }
 
-        .carry-btn {
-            position: absolute; bottom: 20px; width: 85px; height: 45px;
-            font-weight: bold; font-size: 13px; background: #d7a15c;
-            border: 3px solid #8b5a2b; color: #5c3a21; border-radius: 8px;
-            z-index: 40; box-shadow: 0 4px 0 #5c3a21;
-        }
-        .carry-btn.active { background: #ffcc00; }
-        #p1-carry-btn { left: 240px; }
-        #p2-carry-btn { right: 240px; }
+        /* Oyuncu 1 (Sol Taraf) */
+        #p1-joystick-zone { left: 40px; }
+        #p1-action-btn { left: 160px; }
 
-        /* ÇIK BUTONLARI */
-        .exit-btn {
-            position: absolute; bottom: 35px; width: 110px; height: 55px;
-            background: #ef4444; border: 4px solid #991b1b; color: white;
-            font-weight: bold; font-size: 18px; border-radius: 10px;
-            z-index: 60; display: none; box-shadow: 0 5px 0 #7f1d1d;
-            font-family: Arial, sans-serif; text-shadow: 1px 1px 2px #000;
-        }
-        #p1-exit-btn { left: 40px; }
-        #p2-exit-btn { right: 40px; }
-        .exit-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #7f1d1d; }
+        /* Oyuncu 2 (Sağ Taraf) */
+        #p2-joystick-zone { right: 160px; }
+        #p2-action-btn { right: 40px; }
     </style>
 </head>
 <body>
 
     <div id="menu-container">
-        <div id="loading-text">Bölümler ve Modeller Hazırlanıyor...</div>
-        <button id="play-btn">PLAY</button>
+        <h1 style="margin-bottom: 20px;">HERE WARS</h1>
+        <div id="loading-text">Modeller ve Harita Yükleniyor...</div>
+        <button id="play-btn">BAŞLA</button>
     </div>
 
-    <div id="level-indicator">BÖLÜM: <span id="level-num">1</span></div>
+    <div id="p1-joystick-zone" class="joystick-zone"><div id="p1-joystick-stick" class="joystick-stick"></div></div>
+    <div id="p1-action-btn" class="action-btn">ZIPLA</div>
 
-    <div id="p1-ui" class="player-ui">
-        <h2>Puppet (Mavi)</h2>
-        <div class="health-bar"><div id="p1-health"></div></div>
-    </div>
-    <div id="p2-ui" class="player-ui">
-        <h2>Soviet (Kırmızı)</h2>
-        <div class="health-bar"><div id="p2-health"></div></div>
-    </div>
+    <div id="p2-joystick-zone" class="joystick-zone"><div id="p2-joystick-stick" class="joystick-stick"></div></div>
+    <div id="p2-action-btn" class="action-btn">ZIPLA</div>
 
-    <div id="p1-controls" class="player-controls-container">
-        <div id="p1-joystick-zone" class="joystick-zone bottom-left">
-            <div class="joystick-base"><div id="p1-joystick-stick" class="joystick-stick"></div></div>
-        </div>
-        <button id="p1-action-btn" class="action-btn top-left-btn">ZIPLA</button>
-        <button id="p1-carry-btn" class="carry-btn">TAŞI: OFF</button>
-    </div>
-    <button id="p1-exit-btn" class="exit-btn">ÇIK</button>
-
-    <div id="p2-controls" class="player-controls-container">
-        <div id="p2-joystick-zone" class="joystick-zone bottom-right">
-            <div class="joystick-base"><div id="p2-joystick-stick" class="joystick-stick"></div></div>
-        </div>
-        <button id="p2-action-btn" class="action-btn top-right-btn">ZIPLA</button>
-        <button id="p2-carry-btn" class="carry-btn">TAŞI: OFF</button>
-    </div>
-    <button id="p2-exit-btn" class="exit-btn">ÇIK</button>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
 
     <script src="js/game.js"></script>
 </body>
