@@ -11,11 +11,9 @@ let modelsLoadedCount = 0;
 let levelObjects = []; 
 let enemies = [];
 
-// Hasar kontrolü için zamanlayıcılar (Saniyede en fazla 1 kez hasar alması için)
 let p1LastDamageTime = 0;
 let p2LastDamageTime = 0;
 
-// Oyuncuların bitiş durum takipleri
 let p1InsideFinish = false;
 let p2InsideFinish = false;
 
@@ -64,21 +62,18 @@ function init() {
     dirLight.castShadow = true;
     scene.add(dirLight);
 
-    // Fizik Altyapısı
     world = new CANNON.World();
     world.gravity.set(0, -14, 0);
 
-    // --- SOVIET ROBOTUN SÜRTÜNME SORUNUNUN ÇÖZÜMÜ ---
-    // Sıfır sürtünmeli materyaller oluşturup dünyaya tanımlıyoruz
+    // Sürtünmesiz malzeme ayarı
     const zeroFrictionMaterial = new CANNON.Material("zeroFriction");
     const contactMaterial = new CANNON.ContactMaterial(
         zeroFrictionMaterial,
         zeroFrictionMaterial,
-        { friction: 0.0, restitution: 0.1 } // Sürtünmeyi tamamen sıfırladık
+        { friction: 0.0, restitution: 0.1 }
     );
     world.addContactMaterial(contactMaterial);
 
-    // Ana Platform Zeminleri (Sürtünmesiz Materyal Atandı)
     const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(25, 0.2, 3)), material: zeroFrictionMaterial });
     groundBody.position.set(0, 0, 0);
     groundBody.collisionFilterGroup = GROUP_STATIC;
@@ -91,7 +86,6 @@ function init() {
     dirtBody.collisionFilterMask = GROUP_PLAYER1 | GROUP_PLAYER2 | GROUP_ENEMY;
     world.addBody(dirtBody);
 
-    // Çevre Görselleri
     const textureLoader = new THREE.TextureLoader();
     const skyTex = textureLoader.load('assets/textures/images.jpeg');
     skyWallMesh = new THREE.Mesh(new THREE.PlaneGeometry(50, 18), new THREE.MeshStandardMaterial({ map: skyTex, roughness: 0.6 }));
@@ -110,7 +104,7 @@ function init() {
     dirtMesh.position.y = -1.7; dirtMesh.receiveShadow = true;
     scene.add(dirtMesh);
 
-    // Bitiş Kapısı Tasarımı (Karakterler gibi YAN duracak şekilde rotation ayarlandı)
+    // Bitiş Kapısı Yan Profil Ayarı
     const gateGroup = new THREE.Group();
     const postGeo = new THREE.BoxGeometry(0.2, 3, 0.2);
     const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.9 });
@@ -122,18 +116,18 @@ function init() {
     const boardMesh = new THREE.Mesh(boardGeo, woodMat); boardMesh.position.set(0, 2.6, 0); gateGroup.add(boardMesh);
     
     gateGroup.position.set(14, 0, 0);
-    gateGroup.rotation.y = 0; // Karakterlerle aynı hizada yan profil durması sağlandı
+    gateGroup.rotation.y = 0; 
     scene.add(gateGroup);
     finishMesh = gateGroup;
 
-    // Oyuncu Gövdeleri (Sürtünmesiz Materyal Atandı)
     p1Body = createPhysicsPlayer(-10, 2, 0, zeroFrictionMaterial);
     p2Body = createPhysicsPlayer(-8, 2, 0, zeroFrictionMaterial);
+    
+    // Filtreleri başlatırken tetikliyoruz
     updateCollisionFilters();
 
     const loader = new THREE.GLTFLoader();
 
-    // Player 1 (Puppet) GLB Yükleme
     loader.load('assets/models/puppet_1.glb', (gltf) => {
         p1Mesh = gltf.scene;
         p1Mesh.rotation.y = Math.PI / 2; 
@@ -146,7 +140,6 @@ function init() {
         scene.add(p1Mesh); checkModelsReady();
     });
 
-    // Player 2 (Soviet Robot) GLB Yükleme
     loader.load('assets/models/soviet_robot.glb', (gltf) => {
         p2Mesh = gltf.scene;
         p2Mesh.scale.set(0.5, 0.5, 0.5);
@@ -177,8 +170,6 @@ function init() {
 }
 
 function updateCollisionFilters() {
-    // DÜŞMANIN İÇİNDEN GEÇEBİLME AYARI:
-    // Maske listesinden GROUP_ENEMY çıkartıldı! Böylece oyuncular düşmana fiziksel olarak çarpmayacak, içinden geçebilecek.
     p1Body.collisionFilterGroup = GROUP_PLAYER1;
     p1Body.collisionFilterMask = GROUP_STATIC | (p2CarryMode ? GROUP_PLAYER2 : 0);
 
@@ -203,21 +194,18 @@ function setupCarryButtons() {
     });
 }
 
-// --- BİTİŞ ALANI VE TUŞLARIN CO-OP YÖNETİMİ ---
 function handleInsideFinishLogic() {
     const finishX = finishMesh.position.x;
     
-    // P1 Bitiş Alanı Kontrolü
     if (Math.abs(p1Body.position.x - finishX) < 1.0) {
         if (!p1InsideFinish) {
             p1InsideFinish = true;
-            inputs.p1.moveX = 0; // Hareketi sıfırla
-            document.getElementById('p1-controls').style.display = 'none'; // Tuşları gizle
-            document.getElementById('p1-exit-btn').style.display = 'block'; // Çıkış butonunu göster
+            inputs.p1.moveX = 0;
+            document.getElementById('p1-controls').style.display = 'none'; 
+            document.getElementById('p1-exit-btn').style.display = 'block'; 
         }
     }
 
-    // P2 Bitiş Alanı Kontrolü
     if (Math.abs(p2Body.position.x - finishX) < 1.0) {
         if (!p2InsideFinish) {
             p2InsideFinish = true;
@@ -227,7 +215,6 @@ function handleInsideFinishLogic() {
         }
     }
 
-    // İKİ OYUNCU DA İÇERİDEYSE BÖLÜM GEÇ
     if (p1InsideFinish && p2InsideFinish) {
         p1InsideFinish = false; p2InsideFinish = false;
         currentLevel++;
@@ -240,17 +227,15 @@ function handleInsideFinishLogic() {
 }
 
 function setupExitButtons() {
-    // P1 Çıkış Butonu Aksiyonu (Bitişin biraz gerisine atar, tuşları geri getirir)
     document.getElementById('p1-exit-btn').addEventListener('touchstart', (e) => {
         e.preventDefault();
         p1InsideFinish = false;
-        p1Body.position.x = finishMesh.position.x - 3.5; // Biraz geriye atar
+        p1Body.position.x = finishMesh.position.x - 3.5;
         p1Body.velocity.set(0,0,0);
         document.getElementById('p1-exit-btn').style.display = 'none';
         document.getElementById('p1-controls').style.display = 'block';
     });
 
-    // P2 Çıkış Butonu Aksiyonu
     document.getElementById('p2-exit-btn').addEventListener('touchstart', (e) => {
         e.preventDefault();
         p2InsideFinish = false;
@@ -296,14 +281,13 @@ function buildLevel(lvl) {
         levelObjects.push({ mesh: wallMesh, body: wallBody });
 
     } else if (lvl === 2) {
-        // Düşman gövdesi oluşturulurken de içinden geçebilmesi için maske ayarlandı
         const enemyBody = new CANNON.Body({ mass: 5 });
         enemyBody.addShape(new CANNON.Box(new CANNON.Vec3(0.45, 1.1, 0.45)));
         enemyBody.position.set(1, 3, 0);
         enemyBody.fixedRotation = true;
         enemyBody.updateMassProperties();
         enemyBody.collisionFilterGroup = GROUP_ENEMY;
-        enemyBody.collisionFilterMask = GROUP_STATIC; // Sadece zemine çarpar, oyuncuların içinden geçer!
+        enemyBody.collisionFilterMask = GROUP_STATIC; 
         world.addBody(enemyBody);
 
         loader.load('assets/models/puppet_1.glb', (gltf) => {
@@ -350,6 +334,7 @@ function startGame() {
     document.getElementById('p1-ui').style.display = 'block';
     document.getElementById('p2-ui').style.display = 'block';
     
+    // YENİ DÜZELTME: Kapsayıcı div'leri görünür yapıyoruz
     document.getElementById('p1-controls').style.display = 'block';
     document.getElementById('p2-controls').style.display = 'block';
 
@@ -361,10 +346,10 @@ function damagePlayer(playerNum, amount) {
     const now = performance.now();
     
     if(playerNum === 1) {
-        if (now - p1LastDamageTime < 1000) return; // 1 saniye geçmeden tekrar hasar almaz
+        if (now - p1LastDamageTime < 1000) return;
         p1LastDamageTime = now;
         p1Health = Math.max(0, p1Health - amount);
-        document.getElementById('p1-health').style.width = p1Health + "%"; // Can barı düzgün küçülüyor
+        document.getElementById('p1-health').style.width = p1Health + "%"; 
     } else {
         if (now - p2LastDamageTime < 1000) return;
         p2LastDamageTime = now;
@@ -394,7 +379,6 @@ function createPhysicsPlayer(x, y, z, physicsMaterial) {
 function handleGameControls() {
     if (!isGameStarted) return;
 
-    // P1 (İçerideyse hareket kilitlenir)
     const p1Speed = 7;
     if (!p1InsideFinish && inputs.p1.moveX !== 0) {
         p1Body.velocity.x = inputs.p1.moveX * p1Speed;
@@ -406,7 +390,6 @@ function handleGameControls() {
         p1Body.velocity.y = 9.5; inputs.p1.jump = false;
     }
 
-    // P2 (İçerideyse hareket kilitlenir)
     const p2Speed = 4.8;
     if (!p2InsideFinish && inputs.p2.moveX !== 0) {
         p2Body.velocity.x = inputs.p2.moveX * p2Speed;
@@ -459,7 +442,6 @@ function animate() {
         if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 1.0; }
         if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 1.0; }
 
-        // --- AKILLI DÜŞMAN TAKİBİ VE HASAR SİSTEMİ ---
         enemies.forEach(en => {
             if(en.mesh && en.body) {
                 en.mesh.position.copy(en.body.position);
@@ -473,9 +455,8 @@ function animate() {
                 en.body.velocity.x = Math.sign(diffX) * 2.3; 
                 en.mesh.rotation.y = en.body.velocity.x > 0 ? Math.PI / 2 : -Math.PI / 2;
 
-                // Gerçek Hasar Verme Tetikleyicisi (Temas algılandığında canları düşürür)
                 if(Math.abs(p1Body.position.x - en.body.position.x) < 0.7 && Math.abs(p1Body.position.y - en.body.position.y) < 1.0) {
-                    damagePlayer(1, 15); // Vurduğunda 15 hasar verir
+                    damagePlayer(1, 15); 
                 }
                 if(Math.abs(p2Body.position.x - en.body.position.x) < 0.7 && Math.abs(p2Body.position.y - en.body.position.y) < 1.0) {
                     damagePlayer(2, 15);
