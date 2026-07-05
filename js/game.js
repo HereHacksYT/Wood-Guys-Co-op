@@ -17,13 +17,12 @@ let coordDiv;
 function createMobileUI() {
     coordDiv = document.createElement('div');
     coordDiv.style = "position:absolute; top:10px; left:10px; color:white; background:rgba(0,0,0,0.7); padding:12px; border-radius:6px; font-size:13px; z-index:9999; pointer-events:none; font-family:monospace; line-height:1.5;";
-    coordDiv.innerHTML = "Harita aranıyor...";
+    coordDiv.innerHTML = "Kamera koordinatları bekleniyor...";
     document.body.appendChild(coordDiv);
 }
 
 function checkModelsReady() {
     modelsLoadedCount++;
-    // Hem p1 hem p2 model yükleme aşaması tetiklenince (veya hata verip es geçince) butonu aç
     if (modelsLoadedCount >= 2) {
         document.getElementById('loading-text').style.display = 'none';
         document.getElementById('play-btn').style.display = 'block';
@@ -35,33 +34,35 @@ function init() {
     createMobileUI();
     
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb); // Siyah boşluk yerine gökyüzü mavisi
+    scene.background = new THREE.Color(0x87ceeb); // Gökyüzü mavisi
 
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-    camera.position.set(0, 25, 45); // Haritayı görebilmek için yukarıdan ve uzaktan başlatıyoruz
+    // 1. DÜZELTME: Görüş mesafesini (uzaktaki nesneleri yükleme sınırını) 2000'den 5000'e çıkardık.
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000);
+    camera.position.set(0, 40, 80); // Haritayı daha da geniş görebilmek için kamerayı daha uzakta başlattık
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // 📱 MOBİL PARMAK KONTROLÜ (OrbitControls)
-    // Ekranın boş yerinden sürükleyerek kamerayı 360 derece döndürebilirsin.
+    // 📱 MOBİL PARMAK KONTROLÜ
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    // Uzaklaşma sınırını da arttırdık ki parmağınla ekranı kıstığında çok daha geriye gidebil
+    controls.maxDistance = 3000; 
 
     // Işıklar
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     scene.add(ambientLight);
     
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(20, 40, 20);
+    dirLight.position.set(50, 100, 50);
     scene.add(dirLight);
 
-    // 🌐 YARDIMCI IZGARA VE EKSENLER
-    // Haritayı bulamazsan bile boşlukta nerede durduğunu gösteren beyaz zemin çizgileri
-    const grid = new THREE.GridHelper(400, 40, 0xffffff, 0x555555);
+    // 🌐 BÜYÜTÜLMÜŞ YARDIMCI IZGARA
+    // Haritayı uzaktan ararken yönünü kaybetme diye kılavuz çizgilerin boyutunu 1000 yaptık
+    const grid = new THREE.GridHelper(1000, 100, 0xffffff, 0x555555);
     grid.position.y = -0.05;
     scene.add(grid);
 
@@ -71,13 +72,11 @@ function init() {
 
     const playerMat = new CANNON.Material("playerMat");
     
-    // Oyuncuları başlangıç noktası olarak (0, 8, 0) koordinatında havada oluşturuyoruz
     p1Body = createPhysicsPlayer(-2, 8, 0, playerMat);
     p2Body = createPhysicsPlayer(2, 8, 0, playerMat);
 
     const loader = new THREE.GLTFLoader();
     
-    // P1 Model Yükleyici (Yoksa Mavi Küp Oluşturur)
     loader.load('assets/models/puppet_1.glb', (gltf) => {
         p1Mesh = gltf.scene;
         scene.add(p1Mesh);
@@ -87,7 +86,6 @@ function init() {
         scene.add(p1Mesh); checkModelsReady();
     });
 
-    // P2 Model Yükleyici (Yoksa Kırmızı Küp Oluşturur)
     loader.load('assets/models/soviet_robot.glb', (gltf) => {
         p2Mesh = gltf.scene;
         p2Mesh.scale.set(0.5, 0.5, 0.5);
@@ -98,7 +96,6 @@ function init() {
         scene.add(p2Mesh); checkModelsReady();
     });
 
-    // Butona Basınca Arayüzü Aç
     document.getElementById('play-btn').addEventListener('click', () => {
         isGameStarted = true;
         document.getElementById('menu-container').style.display = 'none';
@@ -113,29 +110,24 @@ function init() {
     animate();
 }
 
-// --- .GLB HARİTAYI DOSYADAN ÇEKME VE TARAMA ---
 function loadGLBMap() {
     const loader = new THREE.GLTFLoader();
-    // Sketchfab'dan indirdiğin harita dosyası: assets/models/harita1.glb
     loader.load('assets/models/harita1.glb', (gltf) => {
         const map = gltf.scene;
         scene.add(map);
-        
-        map.position.set(0, 0, 0); // Orijin noktasına yerleştir
+        map.position.set(0, 0, 0);
 
         map.traverse((child) => {
             if (child.isMesh) {
                 child.receiveShadow = true;
                 child.castShadow = true;
 
-                // Her bir mesh parçasının boyutlarını otomatik hesapla
                 const box = new THREE.Box3().setFromObject(child);
                 const size = new THREE.Vector3(); box.getSize(size);
                 const center = new THREE.Vector3(); box.getCenter(center);
                 
-                // Fizik gövdesi ekle (Karakterler üstüne basabilsin diye)
                 const body = new CANNON.Body({
-                    mass: 0, // Sabit zemin
+                    mass: 0,
                     shape: new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2))
                 });
                 body.position.set(center.x, center.y, center.z);
@@ -157,7 +149,6 @@ function createPhysicsPlayer(x, y, z, mat) {
     return body;
 }
 
-// --- MOBIL DOKUNMATIK AYARLARI ---
 function setupTouchControls() {
     setupJoystick('p1-joystick-zone', 'p1-joystick-stick', (x, z) => {
         inputs.p1.moveX = x; inputs.p1.moveZ = z;
@@ -198,7 +189,6 @@ function setupJoystick(zId, sId, cb) {
                 dy = Math.sin(angle) * dist;
                 
                 stick.style.transform = `translate(${dx}px, ${dy}px)`;
-                // Parmak yukarı itilince dy eksi değer alır, bu da 3D'de ileri gitmek demektir (-Z)
                 cb(dx/30, dy/30);
                 break;
             }
@@ -214,7 +204,7 @@ function setupJoystick(zId, sId, cb) {
     zone.addEventListener('touchcancel', endHandle);
 }
 
-// --- MAIN LOOP (OYUN DÖNGÜSÜ) ---
+// --- MAIN LOOP ---
 function animate() {
     requestAnimationFrame(animate);
     
@@ -227,42 +217,35 @@ function animate() {
         world.step(1/60, dt, 3);
         
         const speed = 7.5;
-        // 3D Hareket verilerini fizik motoruna aktarıyoruz
         p1Body.velocity.x = inputs.p1.moveX * speed;
         p1Body.velocity.z = inputs.p1.moveZ * speed;
         p2Body.velocity.x = inputs.p2.moveX * speed;
         p2Body.velocity.z = inputs.p2.moveZ * speed;
 
-        // Zıplama tetikleyicileri
         if(inputs.p1.jump && Math.abs(p1Body.velocity.y) < 0.1) { p1Body.velocity.y = 9.5; inputs.p1.jump = false; }
         if(inputs.p2.jump && Math.abs(p2Body.velocity.y) < 0.1) { p2Body.velocity.y = 9.5; inputs.p2.jump = false; }
 
-        // Görsel modelleri fizik gövdelerine bağlama
         if(p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 1; }
         if(p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 1; }
 
-        // Haritayı aradığımız için şimdilik aşağı düşme sınırını çok esnettim (-100)
         if(p1Body.position.y < -100 || p2Body.position.y < -100) {
             p1Body.position.set(-2, 8, 0); p1Body.velocity.set(0,0,0);
             p2Body.position.set(2, 8, 0); p2Body.velocity.set(0,0,0);
         }
     }
 
-    // 🔴 DEDEKTÖR PANELİNE VERİ BASMA
-    if(coordDiv && p1Body) {
+    // 2. DÜZELTME: Artık panelde karakterin değil, bizzat aktif KAMERANIN koordinatları yazıyor
+    if(coordDiv && camera) {
         coordDiv.innerHTML = `
-            <b>🟢 DETEKTÖR AÇIK</b><br>
-            <b>Oyuncu 1 P1:</b><br>
-            X: ${p1Body.position.x.toFixed(1)}<br>
-            Y: ${p1Body.position.y.toFixed(1)} (Yükseklik)<br>
-            Z: ${p1Body.position.z.toFixed(1)}<br>
-            <span style="color:#00ff00; font-size:11px;">* Ekranın üst kısmını parmağınla kaydırıp haritayı ara!</span>
+            <b>🎥 KAMERA DEDEKTÖRÜ</b><br>
+            Kamera X: ${camera.position.x.toFixed(1)}<br>
+            Kamera Y: ${camera.position.y.toFixed(1)} (Yükseklik)<br>
+            Kamera Z: ${camera.position.z.toFixed(1)}<br>
+            <span style="color:#00ff00; font-size:11px;">* Parmağını kaydırdıkça kameranın yerini görebilirsin.</span>
         `;
     }
 
-    // Mobil OrbitControls kameranın yumuşak dönüşü için güncellenmeli
     if(controls) controls.update();
-    
     renderer.render(scene, camera);
 }
 
