@@ -15,6 +15,7 @@ let enemies = [];
 let lvl3ButtonMesh, lvl3ButtonBody;
 let lvl3GateMesh, lvl3GateBody;
 let isLvl3GateOpen = false;
+let targetGateY = 2.5; // Duvarın hedef Y pozisyonu (Animasyon için)
 
 let p1LastDamageTime = 0;
 let p2LastDamageTime = 0;
@@ -246,9 +247,7 @@ function resetPlayerToStart() {
     document.getElementById('p2-controls').style.display = 'block';
 }
 
-// --- DİNAMİK BÖLÜM VE GEÇİLEBİLİRLİK HESABI ---
 function buildLevel(lvl) {
-    // Eski objeleri temizle
     levelObjects.forEach(obj => { scene.remove(obj.mesh); world.remove(obj.body); });
     levelObjects = [];
     enemies.forEach(en => { scene.remove(en.mesh); world.remove(en.body); });
@@ -257,10 +256,10 @@ function buildLevel(lvl) {
     if(lvl3ButtonMesh) { scene.remove(lvl3ButtonMesh); world.remove(lvl3ButtonBody); lvl3ButtonMesh = null; }
     if(lvl3GateMesh) { scene.remove(lvl3GateMesh); world.remove(lvl3GateBody); lvl3GateMesh = null; }
     isLvl3GateOpen = false;
+    targetGateY = 2.5; 
     if(finishMesh) scene.remove(finishMesh);
 
-    let finishTargetY = 0; // Varsayılan bitiş yüksekliği
-
+    let finishTargetY = 0; 
     const loader = new THREE.GLTFLoader();
 
     if (lvl === 1) {
@@ -300,10 +299,9 @@ function buildLevel(lvl) {
         });
 
     } else if (lvl === 3) {
-        // Bölüm 3: Havada Bitiş Noktası Yapalım (Geçilebilirlik Testi İçin)
         finishTargetY = 2.5; 
 
-        // Büyük Takım Duvarı (Biri üstüne çıkıp atlayacak)
+        // Büyük Takım Duvarı
         const gateGeo = new THREE.BoxGeometry(1.0, 5.0, 4);
         lvl3GateMesh = new THREE.Mesh(gateGeo, new THREE.MeshStandardMaterial({ color: 0x3d3d3d, roughness: 0.7 }));
         lvl3GateMesh.position.set(0, 2.5, 0); scene.add(lvl3GateMesh);
@@ -314,19 +312,20 @@ function buildLevel(lvl) {
         lvl3GateBody.collisionFilterMask = GROUP_PLAYER1 | GROUP_PLAYER2;
         world.addBody(lvl3GateBody);
 
-        // Karşı Taraftaki Buton Plakası (Duvarı indirmek için)
-        const btnGeo = new THREE.BoxGeometry(1.2, 0.15, 1.2);
+        // DÜZELTME: Buton plakasını zemin yüzeyine tam oturtmak için Y değerini 0.3 yaptık.
+        const btnGeo = new THREE.BoxGeometry(1.5, 0.3, 1.5);
         lvl3ButtonMesh = new THREE.Mesh(btnGeo, new THREE.MeshStandardMaterial({ color: 0x22c55e }));
-        lvl3ButtonMesh.position.set(4, 0.075, 0); scene.add(lvl3ButtonMesh);
+        lvl3ButtonMesh.position.set(4, 0.15, 0); 
+        scene.add(lvl3ButtonMesh);
 
-        lvl3ButtonBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(0.6, 0.075, 0.6)) });
-        lvl3ButtonBody.position.set(4, 0.075, 0);
+        lvl3ButtonBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(0.75, 0.15, 0.75)) });
+        lvl3ButtonBody.position.set(4, 0.15, 0);
         lvl3ButtonBody.collisionFilterGroup = GROUP_STATIC;
         lvl3ButtonBody.collisionFilterMask = GROUP_PLAYER1 | GROUP_PLAYER2;
         world.addBody(lvl3ButtonBody);
     }
 
-    // --- BİTİŞ KAPISI VE ALTINDAKİ ZEMİN HESAPLAYICI ---
+    // --- BİTİŞ KAPISI VE GEÇİLEBİLİRLİK BLOKLARI ---
     const gateGroup = new THREE.Group();
     const postGeo = new THREE.BoxGeometry(0.2, 3, 0.2);
     const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.9 });
@@ -338,15 +337,12 @@ function buildLevel(lvl) {
     const boardMesh = new THREE.Mesh(boardGeo, woodMat); boardMesh.position.set(0, 2.6, 0); gateGroup.add(boardMesh);
     
     gateGroup.position.set(14, finishTargetY, 0);
-    gateGroup.rotation.y = 0; 
     scene.add(gateGroup);
     finishMesh = gateGroup;
 
-    // Eğer bitiş noktası havadaysa, altına basamak veya destek bloku ekle
     if (finishTargetY > 0) {
         const platformGeo = new THREE.BoxGeometry(3.5, finishTargetY, 4);
         const platformMesh = new THREE.Mesh(platformGeo, new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.8 }));
-        // Tam kapının altına denk gelecek şekilde yerleştiriyoruz
         platformMesh.position.set(14, finishTargetY / 2, 0);
         scene.add(platformMesh);
 
@@ -482,18 +478,23 @@ function animate() {
         if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 1.0; }
         if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 1.0; }
 
-        // --- BÖLÜM 3: TAKIM BUTONU DENETLEYİCİSİ ---
+        // --- BÖLÜM 3: TAKIM BUTONU VE KAPI ANIMASYONU ---
         if (currentLevel === 3 && lvl3ButtonMesh && lvl3GateMesh) {
-            const p1OnBtn = Math.abs(p1Body.position.x - lvl3ButtonBody.position.x) < 0.8 && Math.abs(p1Body.position.y - lvl3ButtonBody.position.y) < 0.5;
-            const p2OnBtn = Math.abs(p2Body.position.x - lvl3ButtonBody.position.x) < 0.8 && Math.abs(p2Body.position.y - lvl3ButtonBody.position.y) < 0.5;
+            const p1OnBtn = Math.abs(p1Body.position.x - lvl3ButtonBody.position.x) < 0.9 && Math.abs(p1Body.position.y - lvl3ButtonBody.position.y) < 0.6;
+            const p2OnBtn = Math.abs(p2Body.position.x - lvl3ButtonBody.position.x) < 0.9 && Math.abs(p2Body.position.y - lvl3ButtonBody.position.y) < 0.6;
 
-            if ((p1OnBtn || p2OnBtn) && !isLvl3GateOpen) {
-                isLvl3GateOpen = true;
-                lvl3ButtonMesh.material.color.setHex(0xef4444); // Buton aktif rengi kırmızı olur
-                // Kapıyı/Duvarı aşağı indirip yok ediyoruz
-                lvl3GateMesh.position.y = -10; 
-                lvl3GateBody.position.y = -10;
+            if (p1OnBtn || p2OnBtn) {
+                if(!isLvl3GateOpen) {
+                    isLvl3GateOpen = true;
+                    lvl3ButtonMesh.material.color.setHex(0xef4444); // Basılınca kırmızı olur
+                    targetGateY = -3.0; // Kapıyı yerin altına çek
+                    // Fizik motorundan çarpışmayı kaldır
+                    world.remove(lvl3GateBody);
+                }
             }
+            
+            // Pürüzsüz kapı açılma animasyonu (Lerp)
+            lvl3GateMesh.position.y = THREE.MathUtils.lerp(lvl3GateMesh.position.y, targetGateY, 0.1);
         }
 
         enemies.forEach(en => {
