@@ -17,15 +17,13 @@
             height: 100%;
             overflow: hidden;
             background-color: #0f0f1a;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: Arial, sans-serif;
         }
         canvas {
             display: block;
             width: 100%;
             height: 100%;
         }
-
-        /* --- MENÜ VE YÜKLEME EKRANI --- */
         #menu-container {
             position: absolute;
             top: 0;
@@ -37,20 +35,18 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 10;
+            z-index: 9999;
             color: #fff;
         }
         h1 {
-            font-size: 3rem;
+            font-size: 2.5rem;
             margin-bottom: 20px;
             text-transform: uppercase;
             letter-spacing: 3px;
-            text-shadow: 0 0 15px rgba(0, 255, 204, 0.6);
             color: #00ffcc;
+            text-shadow: 0 0 15px rgba(0, 255, 204, 0.6);
             text-align: center;
         }
-        
-        /* 🟩 GARANTİLİ YÜKLENME BARI */
         #progress-container {
             width: 280px;
             height: 16px;
@@ -59,21 +55,19 @@
             border-radius: 8px;
             overflow: hidden;
             margin-top: 15px;
-            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
         }
         #progress-bar {
             width: 0%;
             height: 100%;
             background-color: #00ffcc;
             box-shadow: 0 0 10px #00ffcc;
-            transition: width 0.2s ease;
+            transition: width 0.1s ease;
         }
         #loading-text {
-            font-size: 1.1rem;
+            font-size: 1rem;
             color: #a0a0b0;
             margin-top: 12px;
         }
-
         #play-btn {
             display: none;
             padding: 15px 45px;
@@ -85,15 +79,8 @@
             border-radius: 30px;
             cursor: pointer;
             box-shadow: 0 5px 15px rgba(0, 255, 204, 0.4);
-            transition: transform 0.2s, background 0.2s;
             margin-top: 25px;
         }
-        #play-btn:active {
-            transform: scale(0.95);
-            background: #00ccaa;
-        }
-
-        /* --- MOBİL KONTROLLER --- */
         .joystick-zone {
             position: absolute;
             bottom: 40px;
@@ -108,7 +95,6 @@
         }
         #p1-joystick-zone { left: 40px; }
         #p2-joystick-zone { right: 40px; }
-
         .joystick-stick {
             position: absolute;
             top: 35px;
@@ -117,10 +103,8 @@
             height: 50px;
             background: rgba(255, 255, 255, 0.7);
             border-radius: 50%;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             pointer-events: none;
         }
-
         .action-btn {
             position: absolute;
             bottom: 180px;
@@ -134,18 +118,11 @@
             display: none;
             justify-content: center;
             align-items: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
             z-index: 5;
             touch-action: none;
         }
-        #p1-action-btn {
-            left: 65px;
-            background: linear-gradient(135deg, #0055ff, #0033aa);
-        }
-        #p2-action-btn {
-            right: 65px;
-            background: linear-gradient(135deg, #ff2222, #aa0000);
-        }
+        #p1-action-btn { left: 65px; background: linear-gradient(135deg, #0055ff, #0033aa); }
+        #p2-action-btn { right: 65px; background: linear-gradient(135deg, #ff2222, #aa0000); }
     </style>
 </head>
 <body>
@@ -155,7 +132,7 @@
         <div id="progress-container">
             <div id="progress-bar"></div>
         </div>
-        <div id="loading-text">Bağlantı kuruluyor... (%0)</div>
+        <div id="loading-text">Sistem başlatılıyor... (%0)</div>
         <button id="play-btn">OYNA</button>
     </div>
 
@@ -169,11 +146,11 @@
     </div>
     <button id="p2-action-btn" class="action-btn">Zıpla</button>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/OBJLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/cannon@0.0.6/build/cannon.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
 
-    <script src="js/game.js"></script>
+    <script src="js/game.js?v=9.9.9"></script>
 </body>
 </html>
