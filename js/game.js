@@ -8,7 +8,7 @@ let levelObjects = [];
 let lastTime = performance.now();
 let activeTouches = {};
 
-// 📍 Kamera dedektöründen gelen tam koordinatlara göre doğma noktası
+// 📍 Kamera dedektörü koordinatları
 const START_X = 175.7;
 const START_Y = 415.4; 
 const START_Z = 2303.7;
@@ -18,26 +18,26 @@ const inputs = {
     p2: { moveX: 0, moveZ: 0, jump: false }
 };
 
-// 🟩 CANLI YÜKLENME BARI GÜNCELLEME
+// 🟩 BAR İLERLEME MANTIĞI
 function updateLoadingProgress() {
-    if (isGameStarted) return; // Oyun zaten başladıysa tetikleme
-    
+    if (isGameStarted) return;
     loadedCount++;
+    
     const percentage = Math.min(Math.floor((loadedCount / totalFilesToLoad) * 100), 100);
     
     const progressBar = document.getElementById('progress-bar');
     const loadingText = document.getElementById('loading-text');
     
     if(progressBar) progressBar.style.width = percentage + '%';
-    if(loadingText) loadingText.innerText = `Modeller Hazırlanıyor... (%${percentage})`;
+    if(loadingText) loadingText.innerText = `Modeller Yükleniyor... (%${percentage})`;
 
     if (loadedCount >= totalFilesToLoad) {
-        forceStartGame();
+        showPlayButton();
     }
 }
 
-// 🛡️ NE OLURSA OLSUN OYUNU AÇAN ZORLA BAŞLATMA FONKSİYONU
-function forceStartGame() {
+// 🔓 OYNA BUTONUNU AÇMA
+function showPlayButton() {
     const loadingText = document.getElementById('loading-text');
     const progressCont = document.getElementById('progress-container');
     const playBtn = document.getElementById('play-btn');
@@ -66,65 +66,55 @@ function init() {
     dirLight.position.set(START_X + 200, START_Y + 500, START_Z + 200);
     scene.add(dirLight);
 
-    // Fizik Dünyası
+    // Fizik Motoru Kurulumu
     world = new CANNON.World();
     world.gravity.set(0, -35, 0); 
 
     const playerMat = new CANNON.Material("playerMat");
-    
-    p1Body = createPhysicsPlayer(START_X - 25, START_Y, START_Z, playerMat);
-    p2Body = createPhysicsPlayer(START_X + 25, START_Y, START_Z, playerMat);
+    p1Body = createPhysicsPlayer(START_X - 25, START_Y + 20, START_Z, playerMat);
+    p2Body = createPhysicsPlayer(START_X + 25, START_Y + 20, START_Z, playerMat);
 
-    // ⏱️ ZAMAN AŞIMI KORUMASI (4 Saniye içinde yüklenmezse zorla butonu aç)
+    // ⏱️ GÜVENLİK DUVARI (2.5 Saniyede yüklenmezse her şeyi geç ve oyunu aç)
     setTimeout(() => {
         if (loadedCount < totalFilesToLoad) {
-            console.warn("Yükleme çok uzun sürdü, koruma modu devreye giriyor...");
+            console.warn("Zaman aşımı! Oyun yedek modda başlatılıyor.");
             const progressBar = document.getElementById('progress-bar');
             if(progressBar) progressBar.style.width = '100%';
-            forceStartGame();
+            
+            if (!p1Mesh) fallbackP1(new THREE.MeshStandardMaterial({ color: 0x0055ff }));
+            if (!p2Mesh) fallbackP2(new THREE.MeshStandardMaterial({ color: 0xff2222 }));
+            
+            showPlayButton();
         }
-    }, 4000);
+    }, 2500);
 
     const objLoader = new THREE.OBJLoader();
     const p1Mat = new THREE.MeshStandardMaterial({ color: 0x0055ff, roughness: 0.4 });
     const p2Mat = new THREE.MeshStandardMaterial({ color: 0xff2222, roughness: 0.4 });
 
-    // 👤 1. Oyuncu OBJ Yükleme (Korumalı)
+    // 👤 1. Oyuncu Model Yükleyici
     try {
         objLoader.load('assets/models/puppet_1.obj', (obj) => {
-            obj.traverse((child) => {
-                if (child.isMesh) child.material = p1Mat;
-            });
+            obj.traverse((child) => { if (child.isMesh) child.material = p1Mat; });
             p1Mesh = obj;
             p1Mesh.scale.set(35, 35, 35); 
             scene.add(p1Mesh);
             updateLoadingProgress();
-        }, undefined, (error) => {
-            console.error("p1 yükleme hatası:", error);
-            fallbackP1(p1Mat);
-        });
-    } catch(e) {
-        fallbackP1(p1Mat);
-    }
+        }, undefined, () => { fallbackP1(p1Mat); });
+    } catch(e) { fallbackP1(p1Mat); }
 
-    // 🤖 2. Oyuncu OBJ Yükleme (Korumalı)
+    // 🤖 2. Oyuncu Model Yükleyici
     try {
         objLoader.load('assets/models/soviet_robot.obj', (obj) => {
-            obj.traverse((child) => {
-                if (child.isMesh) child.material = p2Mat;
-            });
+            obj.traverse((child) => { if (child.isMesh) child.material = p2Mat; });
             p2Mesh = obj;
             p2Mesh.scale.set(20, 20, 20); 
             scene.add(p2Mesh);
             updateLoadingProgress();
-        }, undefined, (error) => {
-            console.error("p2 yükleme hatası:", error);
-            fallbackP2(p2Mat);
-        });
-    } catch(e) {
-        fallbackP2(p2Mat);
-    }
+        }, undefined, () => { fallbackP2(p2Mat); });
+    } catch(e) { fallbackP2(p2Mat); }
 
+    // Buton Dinleyici
     document.getElementById('play-btn').addEventListener('click', () => {
         isGameStarted = true;
         document.getElementById('menu-container').style.display = 'none';
@@ -139,50 +129,30 @@ function init() {
     animate();
 }
 
-// Yedek Küp Fonksiyonları
-function fallbackP1(mat) {
-    p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), mat);
-    scene.add(p1Mesh); 
-    updateLoadingProgress();
-}
-function fallbackP2(mat) {
-    p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), mat);
-    scene.add(p2Mesh); 
-    updateLoadingProgress();
-}
+function fallbackP1(mat) { if(!p1Mesh) { p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), mat); scene.add(p1Mesh); updateLoadingProgress(); } }
+function fallbackP2(mat) { if(!p2Mesh) { p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), mat); scene.add(p2Mesh); updateLoadingProgress(); } }
 
 // --- HARİTA YÜKLEME ---
 function loadGLBMap() {
     const loader = new THREE.GLTFLoader();
     loader.load('assets/models/harita1.glb', (gltf) => {
         const map = gltf.scene;
-        map.scale.set(1, 1, 1); 
-        map.position.set(0, 0, 0);
         scene.add(map);
-
         map.traverse((child) => {
             if (child.isMesh) {
-                child.receiveShadow = true;
-                child.castShadow = true;
-
+                child.receiveShadow = true; child.castShadow = true;
                 const box = new THREE.Box3().setFromObject(child);
                 const size = new THREE.Vector3(); box.getSize(size);
                 const center = new THREE.Vector3(); box.getCenter(center);
-                
-                const body = new CANNON.Body({
-                    mass: 0,
-                    shape: new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2))
-                });
+                const body = new CANNON.Body({ mass: 0 });
+                body.addShape(new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2)));
                 body.position.set(center.x, center.y, center.z);
                 world.addBody(body);
                 levelObjects.push({ mesh: child, body: body });
             }
         });
         updateLoadingProgress(); 
-    }, undefined, (e) => {
-        console.error("Harita yüklenemedi:", e);
-        updateLoadingProgress();
-    });
+    }, undefined, () => { updateLoadingProgress(); });
 
     finishMesh = new THREE.Mesh(new THREE.BoxGeometry(150, 80, 20), new THREE.MeshBasicMaterial({ visible: false }));
     finishMesh.position.set(START_X, START_Y, START_Z - 1500); 
@@ -198,6 +168,7 @@ function createPhysicsPlayer(x, y, z, mat) {
     return body;
 }
 
+// --- DOKUNMATİK KONTROLLER ---
 function setupTouchControls() {
     setupJoystick('p1-joystick-zone', 'p1-joystick-stick', (x, z) => { inputs.p1.moveX = x; inputs.p1.moveZ = z; });
     setupJoystick('p2-joystick-zone', 'p2-joystick-stick', (x, z) => { inputs.p2.moveX = x; inputs.p2.moveZ = z; });
@@ -220,7 +191,6 @@ function setupJoystick(zId, sId, cb) {
         e.preventDefault();
         const tData = activeTouches[zId];
         if(!tData) return;
-
         for(let i=0; i<e.touches.length; i++) {
             if(e.touches[i].identifier === tData.id) {
                 let dx = e.touches[i].clientX - tData.x;
@@ -235,18 +205,18 @@ function setupJoystick(zId, sId, cb) {
         }
     });
 
-    const endHandle = (e) => { stick.style.transform = `translate(0px, 0px)`; cb(0, 0); delete activeTouches[zId]; };
+    const endHandle = () => { stick.style.transform = `translate(0px, 0px)`; cb(0, 0); delete activeTouches[zId]; };
     zone.addEventListener('touchend', endHandle); zone.addEventListener('touchcancel', endHandle);
 }
 
 function resetPlayerToStart() {
-    p1Body.position.set(START_X - 25, START_Y, START_Z); p1Body.velocity.set(0,0,0);
-    p2Body.position.set(START_X + 25, START_Y, START_Z); p2Body.velocity.set(0,0,0);
+    p1Body.position.set(START_X - 25, START_Y + 20, START_Z); p1Body.velocity.set(0,0,0);
+    p2Body.position.set(START_X + 25, START_Y + 20, START_Z); p2Body.velocity.set(0,0,0);
 }
 
+// --- ANA DÖNGÜ ---
 function animate() {
     requestAnimationFrame(animate);
-    
     const time = performance.now();
     let dt = (time - lastTime) / 1000;
     lastTime = time;
@@ -254,12 +224,9 @@ function animate() {
 
     if (isGameStarted) {
         world.step(1/60, dt, 3);
-        
         const speed = 180;
-        p1Body.velocity.x = inputs.p1.moveX * speed;
-        p1Body.velocity.z = inputs.p1.moveZ * speed;
-        p2Body.velocity.x = inputs.p2.moveX * speed;
-        p2Body.velocity.z = inputs.p2.moveZ * speed;
+        p1Body.velocity.x = inputs.p1.moveX * speed; p1Body.velocity.z = inputs.p1.moveZ * speed;
+        p2Body.velocity.x = inputs.p2.moveX * speed; p2Body.velocity.z = inputs.p2.moveZ * speed;
 
         if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 0.5) { p1Body.velocity.y = 45; inputs.p1.jump = false; }
         if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 0.5) { p2Body.velocity.y = 45; inputs.p2.jump = false; }
@@ -267,9 +234,7 @@ function animate() {
         if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 15; }
         if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 15; }
 
-        if (p1Body.position.y < START_Y - 200 || p2Body.position.y < START_Y - 200) {
-            resetPlayerToStart();
-        }
+        if (p1Body.position.y < START_Y - 200 || p2Body.position.y < START_Y - 200) { resetPlayerToStart(); }
     }
 
     const midX = (p1Body.position.x + p2Body.position.x) / 2;
@@ -279,16 +244,14 @@ function animate() {
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, midX, 0.05);
     camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 90, 0.05); 
     camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 180, 0.05); 
-
     camera.lookAt(midX, midY + 15, midZ - 20);
 
     renderer.render(scene, camera);
 }
 
-function onWindowResize() {
+window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-}
-window.addEventListener('resize', onWindowResize);
+});
 window.onload = init;
