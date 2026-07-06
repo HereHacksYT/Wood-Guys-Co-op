@@ -7,9 +7,9 @@ let levelObjects = [];
 let lastTime = performance.now();
 let activeTouches = {};
 
-// 📍 Orijinal küçük boyutlu haritadaki doğma noktası
+// Haritaya tam oturması için orijinal koordinatların Y değerini biraz yüksek başlattık
 const START_X = 175.7;
-const START_Y = 418.0; // Zemine tam oturması için ideal yükseklik
+const START_Y = 460.0; 
 const START_Z = 2303.7;
 
 const inputs = {
@@ -30,52 +30,52 @@ function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
 
-    // Görüş mesafesi orijinal ayarlarda kalıyor
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000);
+    // Karakterler büyüdüğü için kameranın arkada kalma mesafesine göre görüş alanını genişlettik
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 30000);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
     scene.add(ambientLight);
     
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(START_X + 50, START_Y + 100, START_Z + 50);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(START_X + 500, START_Y + 1000, START_Z + 500);
     scene.add(dirLight);
 
-    // FİZİK DÜNYASI VE NET YERÇEKİMİ (-16 yönü tam olarak aşağısıdır)
+    // 🌐 FİZİK DÜNYASI
     world = new CANNON.World();
-    world.gravity.set(0, -16, 0); 
+    world.gravity.set(0, -45, 0); // Karakterlerin uçmaması için yerçekimini sertleştirdik
 
     const playerMat = new CANNON.Material("playerMat");
     
-    // Karakter fizikleri orijinal küçük boyutlarına geri döndü (Genişlik: 1, Yükseklik: 2, Derinlik: 1)
-    p1Body = createPhysicsPlayer(START_X - 1.5, START_Y, START_Z, playerMat);
-    p2Body = createPhysicsPlayer(START_X + 1.5, START_Y, START_Z, playerMat);
+    // 📐 Sadece karakter fizikleri 100 kat büyük ve çok ağır (Kütle: 1500)
+    p1Body = createPhysicsPlayer(START_X - 50, START_Y, START_Z, playerMat);
+    p2Body = createPhysicsPlayer(START_X + 50, START_Y, START_Z, playerMat);
 
     const loader = new THREE.GLTFLoader();
     
-    // P1 Orijinal Ölçek
+    // P1 Modelini 100 Kat Büyüt
     loader.load('assets/models/puppet_1.glb', (gltf) => {
         p1Mesh = gltf.scene;
-        p1Mesh.scale.set(1, 1, 1); 
+        p1Mesh.scale.set(100, 100, 100); 
         scene.add(p1Mesh);
         checkModelsReady();
     }, undefined, () => {
-        p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
+        p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(40, 80, 40), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
         scene.add(p1Mesh); checkModelsReady();
     });
 
-    // P2 Orijinal Ölçek
+    // P2 Modelini 100 Kat Büyüt
     loader.load('assets/models/soviet_robot.glb', (gltf) => {
         p2Mesh = gltf.scene;
-        p2Mesh.scale.set(0.5, 0.5, 0.5); 
+        p2Mesh.scale.set(45, 45, 45); 
         scene.add(p2Mesh);
         checkModelsReady();
     }, undefined, () => {
-        p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+        p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(40, 80, 40), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
         scene.add(p2Mesh); checkModelsReady();
     });
 
@@ -93,11 +93,12 @@ function init() {
     animate();
 }
 
+// --- HARİTA ORİJİNAL BOYUTTA KALIYOR ---
 function loadGLBMap() {
     const loader = new THREE.GLTFLoader();
     loader.load('assets/models/harita1.glb', (gltf) => {
         const map = gltf.scene;
-        map.scale.set(1, 1, 1);
+        map.scale.set(1, 1, 1); // Harita boyutuna kesinlikle dokunmuyoruz
         map.position.set(0, 0, 0);
         scene.add(map);
 
@@ -123,14 +124,15 @@ function loadGLBMap() {
         console.log("Harita yüklenemedi!");
     });
 
-    finishMesh = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 2), new THREE.MeshBasicMaterial({ visible: false }));
-    finishMesh.position.set(START_X, START_Y, START_Z - 100); 
+    finishMesh = new THREE.Mesh(new THREE.BoxGeometry(300, 150, 30), new THREE.MeshBasicMaterial({ visible: false }));
+    finishMesh.position.set(START_X, START_Y, START_Z - 2000); 
     scene.add(finishMesh);
 }
 
 function createPhysicsPlayer(x, y, z, mat) {
-    const body = new CANNON.Body({ mass: 5, material: mat });
-    body.addShape(new CANNON.Box(new CANNON.Vec3(0.5, 1, 0.5)));
+    // 🏋️ KÜTLE ARTIRILDI: Uçmayı önlemek için kütleyi 1500 yaptık
+    const body = new CANNON.Body({ mass: 1500, material: mat });
+    body.addShape(new CANNON.Box(new CANNON.Vec3(20, 40, 20))); // 100 kat büyük fizik kutusu
     body.position.set(x, y, z);
     body.fixedRotation = true;
     world.addBody(body);
@@ -179,8 +181,8 @@ function setupJoystick(zId, sId, cb) {
 }
 
 function resetPlayerToStart() {
-    p1Body.position.set(START_X - 1.5, START_Y, START_Z); p1Body.velocity.set(0,0,0);
-    p2Body.position.set(START_X + 1.5, START_Y, START_Z); p2Body.velocity.set(0,0,0);
+    p1Body.position.set(START_X - 40, START_Y, START_Z); p1Body.velocity.set(0,0,0);
+    p2Body.position.set(START_X + 40, START_Y, START_Z); p2Body.velocity.set(0,0,0);
 }
 
 // --- MAIN LOOP ---
@@ -192,38 +194,37 @@ function animate() {
     lastTime = time;
     if(dt > 0.1) dt = 0.1;
 
-    // Oyuncu menüde "Oyna" butonuna basana kadar fizik dünyası tamamen durur (Uçmayı önler)
     if (isGameStarted) {
         world.step(1/60, dt, 3);
         
-        const speed = 8.0;
+        // Ağır gövdelerin haritada akıcı hareket etmesi için ideal hız dengesi
+        const speed = 400;
         p1Body.velocity.x = inputs.p1.moveX * speed;
         p1Body.velocity.z = inputs.p1.moveZ * speed;
         p2Body.velocity.x = inputs.p2.moveX * speed;
         p2Body.velocity.z = inputs.p2.moveZ * speed;
 
-        if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 0.1) { p1Body.velocity.y = 10; inputs.p1.jump = false; }
-        if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 0.1) { p2Body.velocity.y = 10; inputs.p2.jump = false; }
+        if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 1.0) { p1Body.velocity.y = 85; inputs.p1.jump = false; }
+        if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 1.0) { p2Body.velocity.y = 85; inputs.p2.jump = false; }
 
-        if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 1; }
-        if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 1; }
+        if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 40; }
+        if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 40; }
 
-        // Orijinal harita yüksekliğine göre düşme sınırı
-        if (p1Body.position.y < 350 || p2Body.position.y < 350) {
+        if (p1Body.position.y < START_Y - 400 || p2Body.position.y < START_Y - 400) {
             resetPlayerToStart();
         }
     }
 
-    // 🎥 Orijinal boyutlu arkadan takip kamerası
+    // 🎥 Devasa karakterleri takip eden arka kamera açısı
     const midX = (p1Body.position.x + p2Body.position.x) / 2;
     const midY = (p1Body.position.y + p2Body.position.y) / 2;
     const midZ = (p1Body.position.z + p2Body.position.z) / 2;
 
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, midX, 0.05);
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 7, 0.05); 
-    camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 13, 0.05); 
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 250, 0.05); 
+    camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 500, 0.05); 
 
-    camera.lookAt(midX, midY + 1.5, midZ - 5);
+    camera.lookAt(midX, midY + 30, midZ - 50);
 
     renderer.render(scene, camera);
 }
