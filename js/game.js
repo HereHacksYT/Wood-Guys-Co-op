@@ -8,7 +8,7 @@ let levelObjects = [];
 let lastTime = performance.now();
 let activeTouches = {};
 
-// 📍 Kamera dedektörü koordinatları
+// 📍 Başlangıç koordinatları
 const START_X = 175.7;
 const START_Y = 415.4; 
 const START_Z = 2303.7;
@@ -36,7 +36,6 @@ function updateLoadingProgress() {
     }
 }
 
-// 🔓 OYNA BUTONUNU AÇMA
 function showPlayButton() {
     const loadingText = document.getElementById('loading-text');
     const progressCont = document.getElementById('progress-container');
@@ -66,18 +65,18 @@ function init() {
     dirLight.position.set(START_X + 200, START_Y + 500, START_Z + 200);
     scene.add(dirLight);
 
-    // Fizik Motoru Kurulumu
+    // 🛠️ Fizik Dünyası ve 10 Kat Artırılmış Yerçekimi
     world = new CANNON.World();
-    world.gravity.set(0, -35, 0); 
+    world.gravity.set(0, -350, 0); 
 
     const playerMat = new CANNON.Material("playerMat");
     p1Body = createPhysicsPlayer(START_X - 25, START_Y + 20, START_Z, playerMat);
     p2Body = createPhysicsPlayer(START_X + 25, START_Y + 20, START_Z, playerMat);
 
-    // ⏱️ GÜVENLİK DUVARI (2.5 Saniyede yüklenmezse her şeyi geç ve oyunu aç)
+    // Zaman aşımı güvenlik duvarı
     setTimeout(() => {
         if (loadedCount < totalFilesToLoad) {
-            console.warn("Zaman aşımı! Oyun yedek modda başlatılıyor.");
+            console.warn("Zaman aşımı koruması devrede.");
             const progressBar = document.getElementById('progress-bar');
             if(progressBar) progressBar.style.width = '100%';
             
@@ -92,7 +91,7 @@ function init() {
     const p1Mat = new THREE.MeshStandardMaterial({ color: 0x0055ff, roughness: 0.4 });
     const p2Mat = new THREE.MeshStandardMaterial({ color: 0xff2222, roughness: 0.4 });
 
-    // 👤 1. Oyuncu Model Yükleyici
+    // 👤 Oyuncu 1 Model Yükleme
     try {
         objLoader.load('assets/models/puppet_1.obj', (obj) => {
             obj.traverse((child) => { if (child.isMesh) child.material = p1Mat; });
@@ -103,7 +102,7 @@ function init() {
         }, undefined, () => { fallbackP1(p1Mat); });
     } catch(e) { fallbackP1(p1Mat); }
 
-    // 🤖 2. Oyuncu Model Yükleyici
+    // 🤖 Oyuncu 2 Model Yükleme
     try {
         objLoader.load('assets/models/soviet_robot.obj', (obj) => {
             obj.traverse((child) => { if (child.isMesh) child.material = p2Mat; });
@@ -114,7 +113,6 @@ function init() {
         }, undefined, () => { fallbackP2(p2Mat); });
     } catch(e) { fallbackP2(p2Mat); }
 
-    // Buton Dinleyici
     document.getElementById('play-btn').addEventListener('click', () => {
         isGameStarted = true;
         document.getElementById('menu-container').style.display = 'none';
@@ -160,10 +158,11 @@ function loadGLBMap() {
 }
 
 function createPhysicsPlayer(x, y, z, mat) {
-    const body = new CANNON.Body({ mass: 450, material: mat });
+    const body = new CANNON.Body({ mass: 500, material: mat });
     body.addShape(new CANNON.Box(new CANNON.Vec3(7.5, 15, 7.5))); 
     body.position.set(x, y, z);
     body.fixedRotation = true;
+    body.linearDamping = 0.1; // Havada süzülmeyi önleyen frenleme
     world.addBody(body);
     return body;
 }
@@ -214,7 +213,7 @@ function resetPlayerToStart() {
     p2Body.position.set(START_X + 25, START_Y + 20, START_Z); p2Body.velocity.set(0,0,0);
 }
 
-// --- ANA DÖNGÜ ---
+// --- MAIN LOOP ---
 function animate() {
     requestAnimationFrame(animate);
     const time = performance.now();
@@ -228,8 +227,9 @@ function animate() {
         p1Body.velocity.x = inputs.p1.moveX * speed; p1Body.velocity.z = inputs.p1.moveZ * speed;
         p2Body.velocity.x = inputs.p2.moveX * speed; p2Body.velocity.z = inputs.p2.moveZ * speed;
 
-        if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 0.5) { p1Body.velocity.y = 45; inputs.p1.jump = false; }
-        if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 0.5) { p2Body.velocity.y = 45; inputs.p2.jump = false; }
+        // Ağır yerçekimine karşı dengeli zıplama kuvveti (140)
+        if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 1.0) { p1Body.velocity.y = 140; inputs.p1.jump = false; }
+        if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 1.0) { p2Body.velocity.y = 140; inputs.p2.jump = false; }
 
         if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 15; }
         if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 15; }
