@@ -2,14 +2,15 @@
 let scene, camera, renderer, world;
 let p1Mesh, p2Mesh, p1Body, p2Body, finishMesh; 
 let isGameStarted = false;
-let modelsLoadedCount = 0;
+let loadedCount = 0;
+const totalFilesToLoad = 3; // P1 OBJ, P2 OBJ ve Harita GLB
 let levelObjects = []; 
 let lastTime = performance.now();
 let activeTouches = {};
 
-// 📍 Devasa boyutlara göre başlangıç yüksekliği (Y: 4500)
+// 📍 Optimize edilmiş dengeli doğma koordinatları (Uçma yapmaz)
 const START_X = 175.7;
-const START_Y = 4500.0; 
+const START_Y = 430.0; 
 const START_Z = 2303.7;
 
 const inputs = {
@@ -17,11 +18,24 @@ const inputs = {
     p2: { moveX: 0, moveZ: 0, jump: false }
 };
 
-function checkModelsReady() {
-    modelsLoadedCount++;
-    if (modelsLoadedCount >= 2) {
-        document.getElementById('loading-text').style.display = 'none';
-        document.getElementById('play-btn').style.display = 'block';
+// 🟩 CANLI YÜKLENME BARI GÜNCELLEME FONKSİYONU
+function updateLoadingProgress() {
+    loadedCount++;
+    const percentage = Math.floor((loadedCount / totalFilesToLoad) * 100);
+    
+    const progressBar = document.getElementById('progress-bar');
+    const loadingText = document.getElementById('loading-text');
+    
+    if(progressBar) progressBar.style.width = percentage + '%';
+    if(loadingText) loadingText.innerText = `Modeller Yükleniyor... (%${percentage})`;
+
+    if (loadedCount >= totalFilesToLoad) {
+        if(loadingText) loadingText.style.display = 'none';
+        const progressCont = document.getElementById('progress-container');
+        if(progressCont) progressCont.style.display = 'none';
+        
+        const playBtn = document.getElementById('play-btn');
+        if(playBtn) playBtn.style.display = 'block';
     }
 }
 
@@ -30,68 +44,57 @@ function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
 
-    // Görüş mesafesi süper dev boyutlar için 300.000 yapıldı
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 300000);
+    // Boyutlar optimize edildiği için görüş alanı mesafesi normale çekildi (Yüklenme hızlanır)
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 15000);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.3);
     scene.add(ambientLight);
     
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    dirLight.position.set(START_X + 5000, START_Y + 10000, START_Z + 5000);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(START_X + 200, START_Y + 500, START_Z + 200);
     scene.add(dirLight);
 
-    // Fizik Dünyası ve Yerçekimi
+    // Fizik Dünyası
     world = new CANNON.World();
-    world.gravity.set(0, -150, 0); 
+    world.gravity.set(0, -35, 0); 
 
     const playerMat = new CANNON.Material("playerMat");
     
-    // 📐 FİZİK KUTULARI 10.000 KAT BÜYÜK (Genişlik: 2000, Yükseklik: 4000, Derinlik: 2000)
-    p1Body = createPhysicsPlayer(START_X - 3000, START_Y, START_Z, playerMat);
-    p2Body = createPhysicsPlayer(START_X + 3000, START_Y, START_Z, playerMat);
+    // 📐 Karakter fizik boyutları haritaya mükemmel uyacak şekilde düzenlendi (Genişlik: 15, Yükseklik: 30, Derinlik: 15)
+    p1Body = createPhysicsPlayer(START_X - 25, START_Y, START_Z, playerMat);
+    p2Body = createPhysicsPlayer(START_X + 25, START_Y, START_Z, playerMat);
 
-    // --- MODEL YÜKLEYİCİLER ---
-    const gltfLoader = new THREE.GLTFLoader();
     const objLoader = new THREE.OBJLoader();
     
-    // 1. Oyuncu (Puppet) Yükleme (.glb)
-    gltfLoader.load('assets/models/puppet_1.glb', (gltf) => {
-        p1Mesh = gltf.scene;
-        p1Mesh.scale.set(10000, 10000, 10000); 
+    // 👤 1. Karakter OBJ Yükleme (assets/models/puppet_1.obj)
+    objLoader.load('assets/models/puppet_1.obj', (obj) => {
+        p1Mesh = obj;
+        p1Mesh.scale.set(35, 35, 35); // Haritaya tam oturan ideal büyüklük
         scene.add(p1Mesh);
-        checkModelsReady();
+        updateLoadingProgress();
     }, undefined, () => {
-        p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(2000, 4000, 2000), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
-        scene.add(p1Mesh); checkModelsReady();
+        // Eğer dosya yoksa hata vermesin, mavi test küpü oluştursun
+        p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
+        scene.add(p1Mesh); 
+        updateLoadingProgress();
     });
 
-    // 🤖 2. Oyuncu (Robot) Çift Format Desteği (.obj veya .glb)
-    // Önce OBJ deniyoruz, eğer hata verirse otomatik GLB deneyecek
+    // 🤖 2. Karakter OBJ Yükleme (assets/models/soviet_robot.obj)
     objLoader.load('assets/models/soviet_robot.obj', (obj) => {
         p2Mesh = obj;
-        p2Mesh.scale.set(4500, 4500, 4500); // OBJ için devasa boyut
+        p2Mesh.scale.set(20, 20, 20); // Haritaya tam oturan ideal büyüklük
         scene.add(p2Mesh);
-        console.log("Robot OBJ olarak başarıyla yüklendi!");
-        checkModelsReady();
-    }, undefined, (err) => {
-        console.log("OBJ bulunamadı veya yüklenemedi, GLB deneniyor...");
-        
-        // OBJ başarısız olursa GLB yüklemeyi dene
-        gltfLoader.load('assets/models/soviet_robot.glb', (gltf) => {
-            p2Mesh = gltf.scene;
-            p2Mesh.scale.set(4500, 4500, 4500); 
-            scene.add(p2Mesh);
-            checkModelsReady();
-        }, undefined, () => {
-            // İkisi de yoksa mavi/kırmızı test küpü koy
-            p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(2000, 4000, 2000), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-            scene.add(p2Mesh); checkModelsReady();
-        });
+        updateLoadingProgress();
+    }, undefined, () => {
+        // Eğer dosya yoksa hata vermesin, kırmızı test küpü oluştursun
+        p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+        scene.add(p2Mesh); 
+        updateLoadingProgress();
     });
 
     document.getElementById('play-btn').addEventListener('click', () => {
@@ -108,7 +111,7 @@ function init() {
     animate();
 }
 
-// --- HARİTA YÜKLEME (Yazım hatası düzeltildi) ---
+// --- HARİTA YÜKLEME ---
 function loadGLBMap() {
     const loader = new THREE.GLTFLoader();
     loader.load('assets/models/harita1.glb', (gltf) => {
@@ -126,7 +129,6 @@ function loadGLBMap() {
                 const size = new THREE.Vector3(); box.getSize(size);
                 const center = new THREE.Vector3(); box.getCenter(center);
                 
-                // 🛠️ DÜZELTİLEN YER: Esat hataya sebep olan eşittir (=) işareti iki noktaya (:) çevrildi
                 const body = new CANNON.Body({
                     mass: 0,
                     shape: new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2))
@@ -136,18 +138,20 @@ function loadGLBMap() {
                 levelObjects.push({ mesh: child, body: body });
             }
         });
+        updateLoadingProgress(); // Harita yüklenince barı ilerlet
     }, undefined, (e) => {
         console.log("Harita yüklenemedi!");
+        updateLoadingProgress();
     });
 
-    finishMesh = new THREE.Mesh(new THREE.BoxGeometry(10000, 5000, 500), new THREE.MeshBasicMaterial({ visible: false }));
-    finishMesh.position.set(START_X, START_Y, START_Z - 50000); 
+    finishMesh = new THREE.Mesh(new THREE.BoxGeometry(150, 80, 20), new THREE.MeshBasicMaterial({ visible: false }));
+    finishMesh.position.set(START_X, START_Y, START_Z - 1500); 
     scene.add(finishMesh);
 }
 
 function createPhysicsPlayer(x, y, z, mat) {
-    const body = new CANNON.Body({ mass: 50000, material: mat });
-    body.addShape(new CANNON.Box(new CANNON.Vec3(1000, 2000, 1000))); 
+    const body = new CANNON.Body({ mass: 450, material: mat });
+    body.addShape(new CANNON.Box(new CANNON.Vec3(7.5, 15, 7.5))); 
     body.position.set(x, y, z);
     body.fixedRotation = true;
     world.addBody(body);
@@ -196,8 +200,8 @@ function setupJoystick(zId, sId, cb) {
 }
 
 function resetPlayerToStart() {
-    p1Body.position.set(START_X - 1500, START_Y, START_Z); p1Body.velocity.set(0,0,0);
-    p2Body.position.set(START_X + 1500, START_Y, START_Z); p2Body.velocity.set(0,0,0);
+    p1Body.position.set(START_X - 25, START_Y, START_Z); p1Body.velocity.set(0,0,0);
+    p2Body.position.set(START_X + 25, START_Y, START_Z); p2Body.velocity.set(0,0,0);
 }
 
 // --- MAIN LOOP ---
@@ -212,32 +216,34 @@ function animate() {
     if (isGameStarted) {
         world.step(1/60, dt, 3);
         
-        const speed = 12000;
+        // Yeni makul boyutlara göre dengelenmiş hareket hızı
+        const speed = 180;
         p1Body.velocity.x = inputs.p1.moveX * speed;
         p1Body.velocity.z = inputs.p1.moveZ * speed;
         p2Body.velocity.x = inputs.p2.moveX * speed;
         p2Body.velocity.z = inputs.p2.moveZ * speed;
 
-        if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 5.0) { p1Body.velocity.y = 1200; inputs.p1.jump = false; }
-        if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 5.0) { p2Body.velocity.y = 1200; inputs.p2.jump = false; }
+        if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 0.5) { p1Body.velocity.y = 45; inputs.p1.jump = false; }
+        if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 0.5) { p2Body.velocity.y = 45; inputs.p2.jump = false; }
 
-        if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 2000; }
-        if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 2000; }
+        if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 15; }
+        if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 15; }
 
-        if (p1Body.position.y < START_Y - 15000 || p2Body.position.y < START_Y - 15000) {
+        if (p1Body.position.y < START_Y - 200 || p2Body.position.y < START_Y - 200) {
             resetPlayerToStart();
         }
     }
 
+    // Kamera takibi yeni boyutlara tam uyacak şekilde mesafesi ayarlandı
     const midX = (p1Body.position.x + p2Body.position.x) / 2;
     const midY = (p1Body.position.y + p2Body.position.y) / 2;
     const midZ = (p1Body.position.z + p2Body.position.z) / 2;
 
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, midX, 0.05);
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 12000, 0.05); 
-    camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 25000, 0.05); 
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 90, 0.05); 
+    camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 180, 0.05); 
 
-    camera.lookAt(midX, midY + 1000, midZ - 2000);
+    camera.lookAt(midX, midY + 15, midZ - 20);
 
     renderer.render(scene, camera);
 }
