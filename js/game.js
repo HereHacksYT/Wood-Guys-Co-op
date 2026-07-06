@@ -8,9 +8,9 @@ let levelObjects = [];
 let lastTime = performance.now();
 let activeTouches = {};
 
-// 📍 Harita koordinatlarına tam oturan doğma noktaları
+// 📍 Kamera dedektöründen gelen tam koordinatlara göre doğma noktası
 const START_X = 175.7;
-const START_Y = 430.0; 
+const START_Y = 415.4; 
 const START_Z = 2303.7;
 
 const inputs = {
@@ -18,8 +18,10 @@ const inputs = {
     p2: { moveX: 0, moveZ: 0, jump: false }
 };
 
-// 🟩 SIKIŞMAYI ÖNLEYEN YÜKLENME BARI
+// 🟩 CANLI YÜKLENME BARI GÜNCELLEME
 function updateLoadingProgress() {
+    if (isGameStarted) return; // Oyun zaten başladıysa tetikleme
+    
     loadedCount++;
     const percentage = Math.min(Math.floor((loadedCount / totalFilesToLoad) * 100), 100);
     
@@ -30,15 +32,19 @@ function updateLoadingProgress() {
     if(loadingText) loadingText.innerText = `Modeller Hazırlanıyor... (%${percentage})`;
 
     if (loadedCount >= totalFilesToLoad) {
-        setTimeout(() => {
-            if(loadingText) loadingText.style.display = 'none';
-            const progressCont = document.getElementById('progress-container');
-            if(progressCont) progressCont.style.display = 'none';
-            
-            const playBtn = document.getElementById('play-btn');
-            if(playBtn) playBtn.style.display = 'block';
-        }, 400);
+        forceStartGame();
     }
+}
+
+// 🛡️ NE OLURSA OLSUN OYUNU AÇAN ZORLA BAŞLATMA FONKSİYONU
+function forceStartGame() {
+    const loadingText = document.getElementById('loading-text');
+    const progressCont = document.getElementById('progress-container');
+    const playBtn = document.getElementById('play-btn');
+    
+    if(loadingText) loadingText.style.display = 'none';
+    if(progressCont) progressCont.style.display = 'none';
+    if(playBtn) playBtn.style.display = 'block';
 }
 
 // --- INITIALIZATION ---
@@ -69,44 +75,55 @@ function init() {
     p1Body = createPhysicsPlayer(START_X - 25, START_Y, START_Z, playerMat);
     p2Body = createPhysicsPlayer(START_X + 25, START_Y, START_Z, playerMat);
 
+    // ⏱️ ZAMAN AŞIMI KORUMASI (4 Saniye içinde yüklenmezse zorla butonu aç)
+    setTimeout(() => {
+        if (loadedCount < totalFilesToLoad) {
+            console.warn("Yükleme çok uzun sürdü, koruma modu devreye giriyor...");
+            const progressBar = document.getElementById('progress-bar');
+            if(progressBar) progressBar.style.width = '100%';
+            forceStartGame();
+        }
+    }, 4000);
+
     const objLoader = new THREE.OBJLoader();
-    
-    // Malzeme Çökmesini Önleyen Standart Materyaller
     const p1Mat = new THREE.MeshStandardMaterial({ color: 0x0055ff, roughness: 0.4 });
     const p2Mat = new THREE.MeshStandardMaterial({ color: 0xff2222, roughness: 0.4 });
 
-    // 👤 1. Oyuncu OBJ Yükleme
-    objLoader.load('assets/models/puppet_1.obj', (obj) => {
-        // Alt mesh'lere malzeme koruması uygula
-        obj.traverse((child) => {
-            if (child.isMesh) child.material = p1Mat;
+    // 👤 1. Oyuncu OBJ Yükleme (Korumalı)
+    try {
+        objLoader.load('assets/models/puppet_1.obj', (obj) => {
+            obj.traverse((child) => {
+                if (child.isMesh) child.material = p1Mat;
+            });
+            p1Mesh = obj;
+            p1Mesh.scale.set(35, 35, 35); 
+            scene.add(p1Mesh);
+            updateLoadingProgress();
+        }, undefined, (error) => {
+            console.error("p1 yükleme hatası:", error);
+            fallbackP1(p1Mat);
         });
-        p1Mesh = obj;
-        p1Mesh.scale.set(35, 35, 35); 
-        scene.add(p1Mesh);
-        updateLoadingProgress();
-    }, undefined, () => {
-        // Dosya okunamazsa dondurma, küp yap geç
-        p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), p1Mat);
-        scene.add(p1Mesh); 
-        updateLoadingProgress(); 
-    });
+    } catch(e) {
+        fallbackP1(p1Mat);
+    }
 
-    // 🤖 2. Oyuncu OBJ Yükleme
-    objLoader.load('assets/models/soviet_robot.obj', (obj) => {
-        // Alt mesh'lere malzeme koruması uygula
-        obj.traverse((child) => {
-            if (child.isMesh) child.material = p2Mat;
+    // 🤖 2. Oyuncu OBJ Yükleme (Korumalı)
+    try {
+        objLoader.load('assets/models/soviet_robot.obj', (obj) => {
+            obj.traverse((child) => {
+                if (child.isMesh) child.material = p2Mat;
+            });
+            p2Mesh = obj;
+            p2Mesh.scale.set(20, 20, 20); 
+            scene.add(p2Mesh);
+            updateLoadingProgress();
+        }, undefined, (error) => {
+            console.error("p2 yükleme hatası:", error);
+            fallbackP2(p2Mat);
         });
-        p2Mesh = obj;
-        p2Mesh.scale.set(20, 20, 20); 
-        scene.add(p2Mesh);
-        updateLoadingProgress();
-    }, undefined, () => {
-        p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), p2Mat);
-        scene.add(p2Mesh); 
-        updateLoadingProgress(); 
-    });
+    } catch(e) {
+        fallbackP2(p2Mat);
+    }
 
     document.getElementById('play-btn').addEventListener('click', () => {
         isGameStarted = true;
@@ -120,6 +137,18 @@ function init() {
     loadGLBMap();
     setupTouchControls();
     animate();
+}
+
+// Yedek Küp Fonksiyonları
+function fallbackP1(mat) {
+    p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), mat);
+    scene.add(p1Mesh); 
+    updateLoadingProgress();
+}
+function fallbackP2(mat) {
+    p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), mat);
+    scene.add(p2Mesh); 
+    updateLoadingProgress();
 }
 
 // --- HARİTA YÜKLEME ---
@@ -150,7 +179,8 @@ function loadGLBMap() {
             }
         });
         updateLoadingProgress(); 
-    }, undefined, () => {
+    }, undefined, (e) => {
+        console.error("Harita yüklenemedi:", e);
         updateLoadingProgress();
     });
 
