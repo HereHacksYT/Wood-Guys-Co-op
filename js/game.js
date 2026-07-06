@@ -8,10 +8,10 @@ let levelObjects = [];
 let lastTime = performance.now();
 let activeTouches = {};
 
-// 📍 Başlangıç koordinatları
-const START_X = 175.7;
-const START_Y = 415.4; 
-const START_Z = 2303.7;
+// 📍 İstediğin gibi doğma noktası tam olarak sıfırlandı
+const START_X = 0;
+const START_Y = 20; // Havadan yere sert düşmeleri için biraz yukardan başlatıyoruz
+const START_Z = 0;
 
 const inputs = {
     p1: { moveX: 0, moveZ: 0, jump: false },
@@ -59,13 +59,13 @@ function init() {
     dirLight.position.set(START_X + 200, START_Y + 500, START_Z + 200);
     scene.add(dirLight);
 
-    // Fizik Dünyası (10 Kat Yerçekimi)
+    // Fizik Dünyası (10 Kat Ağır Yerçekimi)
     world = new CANNON.World();
     world.gravity.set(0, -350, 0); 
 
     const playerMat = new CANNON.Material("playerMat");
-    p1Body = createPhysicsPlayer(START_X - 25, START_Y + 20, START_Z, playerMat);
-    p2Body = createPhysicsPlayer(START_X + 25, START_Y + 20, START_Z, playerMat);
+    p1Body = createPhysicsPlayer(START_X - 5, START_Y, START_Z, playerMat);
+    p2Body = createPhysicsPlayer(START_X + 5, START_Y, START_Z, playerMat);
 
     setTimeout(() => {
         if (loadedCount < totalFilesToLoad) {
@@ -81,17 +81,19 @@ function init() {
     const p1Mat = new THREE.MeshStandardMaterial({ color: 0x0055ff, roughness: 0.4 });
     const p2Mat = new THREE.MeshStandardMaterial({ color: 0xff2222, roughness: 0.4 });
 
+    // 👤 Oyuncu 1 - Haritaya göre boyutları küçültüldü (Scale: 5)
     try {
         objLoader.load('assets/models/puppet_1.obj', (obj) => {
             obj.traverse((child) => { if (child.isMesh) child.material = p1Mat; });
-            p1Mesh = obj; p1Mesh.scale.set(35, 35, 35); scene.add(p1Mesh); updateLoadingProgress();
+            p1Mesh = obj; p1Mesh.scale.set(5, 5, 5); scene.add(p1Mesh); updateLoadingProgress();
         }, undefined, () => { fallbackP1(p1Mat); });
     } catch(e) { fallbackP1(p1Mat); }
 
+    // 🤖 Oyuncu 2 - Haritaya göre boyutları küçültüldü (Scale: 3)
     try {
         objLoader.load('assets/models/soviet_robot.obj', (obj) => {
             obj.traverse((child) => { if (child.isMesh) child.material = p2Mat; });
-            p2Mesh = obj; p2Mesh.scale.set(20, 20, 20); scene.add(p2Mesh); updateLoadingProgress();
+            p2Mesh = obj; p2Mesh.scale.set(3, 3, 3); scene.add(p2Mesh); updateLoadingProgress();
         }, undefined, () => { fallbackP2(p2Mat); });
     } catch(e) { fallbackP2(p2Mat); }
 
@@ -104,38 +106,39 @@ function init() {
         document.getElementById('p2-action-btn').style.display = 'flex';
     });
 
-    loadGLBMap();
+    loadOBJMap(); // Yeni OBJ yükleyici tetikleniyor
     setupTouchControls();
     animate();
 }
 
-function fallbackP1(mat) { if(!p1Mesh) { p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), mat); scene.add(p1Mesh); updateLoadingProgress(); } }
-function fallbackP2(mat) { if(!p2Mesh) { p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), mat); scene.add(p2Mesh); updateLoadingProgress(); } }
+function fallbackP1(mat) { if(!p1Mesh) { p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 2), mat); scene.add(p1Mesh); updateLoadingProgress(); } }
+function fallbackP2(mat) { if(!p2Mesh) { p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 2), mat); scene.add(p2Mesh); updateLoadingProgress(); } }
 
-// --- HARİTA YÜKLEME VE AĞAÇ FİLTRESİ ---
-function loadGLBMap() {
-    const loader = new THREE.GLTFLoader();
-    loader.load('assets/models/harita1.glb', (gltf) => {
-        const map = gltf.scene;
-        scene.add(map);
-        map.traverse((child) => {
+// --- YENİ HARİTA.OBJ YÜKLEYİCİ ---
+function loadOBJMap() {
+    const objLoader = new THREE.OBJLoader();
+    const mapMat = new THREE.MeshStandardMaterial({ color: 0x76a973, roughness: 0.8 }); // Yeşilimsi zemin rengi
+
+    objLoader.load('assets/models/Harita.obj', (obj) => {
+        scene.add(obj);
+        obj.traverse((child) => {
             if (child.isMesh) {
-                child.receiveShadow = true; child.castShadow = true;
+                child.material = mapMat;
+                child.receiveShadow = true; 
+                child.castShadow = true;
 
-                // 🌳 AĞAÇ VE YAPRAK ENGELLEME FİLTRESİ
+                // Ağaç/Yaprak filtresi korundu
                 const meshName = child.name.toLowerCase();
                 if (meshName.includes('tree') || meshName.includes('leaf') || 
                     meshName.includes('agac') || meshName.includes('yaprak') || 
-                    meshName.includes('foliage') || meshName.includes('plant') ||
                     meshName.includes('dekor')) {
-                    // Bu objeleri sadece çizdiriyoruz, Cannon.js gövdesi eklemeden pas geçiyoruz!
                     return; 
                 }
 
-                // Sadece yollar, binalar ve zemin katı kutu haline getirilir
                 const box = new THREE.Box3().setFromObject(child);
                 const size = new THREE.Vector3(); box.getSize(size);
                 const center = new THREE.Vector3(); box.getCenter(center);
+                
                 const body = new CANNON.Body({ mass: 0 });
                 body.addShape(new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2)));
                 body.position.set(center.x, center.y, center.z);
@@ -143,17 +146,31 @@ function loadGLBMap() {
                 levelObjects.push({ mesh: child, body: body });
             }
         });
-        updateLoadingProgress(); 
-    }, undefined, () => { updateLoadingProgress(); });
+        updateLoadingProgress();
+    }, undefined, (err) => {
+        console.error("Harita yüklenemedi, yedek zemin açılıyor:", err);
+        createFallbackGround();
+        updateLoadingProgress();
+    });
+}
 
-    finishMesh = new THREE.Mesh(new THREE.BoxGeometry(150, 80, 20), new THREE.MeshBasicMaterial({ visible: false }));
-    finishMesh.position.set(START_X, START_Y, START_Z - 1500); 
-    scene.add(finishMesh);
+function createFallbackGround() {
+    const groundGeo = new THREE.BoxGeometry(500, 2, 500);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+    const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+    groundMesh.position.set(0, -1, 0);
+    scene.add(groundMesh);
+
+    const groundBody = new CANNON.Body({ mass: 0 });
+    groundBody.addShape(new CANNON.Box(new CANNON.Vec3(250, 1, 250)));
+    groundBody.position.set(0, -1, 0);
+    world.addBody(groundBody);
 }
 
 function createPhysicsPlayer(x, y, z, mat) {
-    const body = new CANNON.Body({ mass: 500, material: mat });
-    body.addShape(new CANNON.Box(new CANNON.Vec3(7.5, 15, 7.5))); 
+    // Küçük karakterler için hitbox küçültüldü (Genişlik: 1, Yükseklik: 2, Derinlik: 1)
+    const body = new CANNON.Body({ mass: 300, material: mat });
+    body.addShape(new CANNON.Box(new CANNON.Vec3(1, 2, 1))); 
     body.position.set(x, y, z);
     body.fixedRotation = true;
     body.linearDamping = 0.1;
@@ -161,7 +178,7 @@ function createPhysicsPlayer(x, y, z, mat) {
     return body;
 }
 
-// --- KONTROLLER ---
+// --- MOBILE KONTROLLER ---
 function setupTouchControls() {
     setupJoystick('p1-joystick-zone', 'p1-joystick-stick', (x, z) => { inputs.p1.moveX = x; inputs.p1.moveZ = z; });
     setupJoystick('p2-joystick-zone', 'p2-joystick-stick', (x, z) => { inputs.p2.moveX = x; inputs.p2.moveZ = z; });
@@ -203,11 +220,11 @@ function setupJoystick(zId, sId, cb) {
 }
 
 function resetPlayerToStart() {
-    p1Body.position.set(START_X - 25, START_Y + 20, START_Z); p1Body.velocity.set(0,0,0);
-    p2Body.position.set(START_X + 25, START_Y + 20, START_Z); p2Body.velocity.set(0,0,0);
+    p1Body.position.set(START_X - 5, START_Y, START_Z); p1Body.velocity.set(0,0,0);
+    p2Body.position.set(START_X + 5, START_Y, START_Z); p2Body.velocity.set(0,0,0);
 }
 
-// --- ANA DÖNGÜ ---
+// --- ANA DÖNGÜ & YANDAN GÖRÜNÜŞ KAMERASI ---
 function animate() {
     requestAnimationFrame(animate);
     const time = performance.now();
@@ -217,27 +234,31 @@ function animate() {
 
     if (isGameStarted) {
         world.step(1/60, dt, 3);
-        const speed = 180;
+        const speed = 120; // Karakterler küçüldüğü için hız biraz dengelendi
         p1Body.velocity.x = inputs.p1.moveX * speed; p1Body.velocity.z = inputs.p1.moveZ * speed;
         p2Body.velocity.x = inputs.p2.moveX * speed; p2Body.velocity.z = inputs.p2.moveZ * speed;
 
-        if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 1.0) { p1Body.velocity.y = 140; inputs.p1.jump = false; }
-        if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 1.0) { p2Body.velocity.y = 140; inputs.p2.jump = false; }
+        // Küçülen gövdeye göre zıplama kuvveti dengelendi (90)
+        if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 1.0) { p1Body.velocity.y = 90; inputs.p1.jump = false; }
+        if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 1.0) { p2Body.velocity.y = 90; inputs.p2.jump = false; }
 
-        if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 15; }
-        if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 15; }
+        if (p1Mesh) { p1Mesh.position.copy(p1Body.position); p1Mesh.position.y -= 2; }
+        if (p2Mesh) { p2Mesh.position.copy(p2Body.position); p2Mesh.position.y -= 2; }
 
-        if (p1Body.position.y < START_Y - 200 || p2Body.position.y < START_Y - 200) { resetPlayerToStart(); }
+        if (p1Body.position.y < START_Y - 100 || p2Body.position.y < START_Y - 100) { resetPlayerToStart(); }
     }
 
     const midX = (p1Body.position.x + p2Body.position.x) / 2;
     const midY = (p1Body.position.y + p2Body.position.y) / 2;
     const midZ = (p1Body.position.z + p2Body.position.z) / 2;
 
+    // 🎥 YANDAN GÖRÜNÜŞ (SIDE-SCOLLER / PLATFORMER AYARI)
+    // Kamera Z ekseninde (tam yan profilde) duruyor ve X ekseninde koşan oyuncuları takip ediyor.
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, midX, 0.05);
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 90, 0.05); 
-    camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 180, 0.05); 
-    camera.lookAt(midX, midY + 15, midZ - 20);
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 25, 0.05); // Hafif yukardan bakış
+    camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 60, 0.05); // Mesafeli yan takip
+
+    camera.lookAt(midX, midY + 5, midZ);
 
     renderer.render(scene, camera);
 }
