@@ -7,7 +7,7 @@ let levelObjects = [];
 let lastTime = performance.now();
 let activeTouches = {};
 
-// 📍 Devasa boyutlara göre başlangıç yüksekliği ayarlandı (Y: 4500)
+// 📍 Devasa boyutlara göre başlangıç yüksekliği (Y: 4500)
 const START_X = 175.7;
 const START_Y = 4500.0; 
 const START_Z = 2303.7;
@@ -30,7 +30,7 @@ function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
 
-    // 🪐 Görüş mesafesini (far plane) 300.000 yaptık ki devasa karakterler etrafı görebilsin!
+    // Görüş mesafesi süper dev boyutlar için 300.000 yapıldı
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 300000);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -45,20 +45,22 @@ function init() {
     dirLight.position.set(START_X + 5000, START_Y + 10000, START_Z + 5000);
     scene.add(dirLight);
 
-    // Fizik Dünyası ve Yerçekimi (Devasa kütleler için aşağı çekim artırıldı)
+    // Fizik Dünyası ve Yerçekimi
     world = new CANNON.World();
     world.gravity.set(0, -150, 0); 
 
     const playerMat = new CANNON.Material("playerMat");
     
-    // 📐 FİZİK KUTULARI 10.000 KAT BÜYÜDÜ: (Genişlik: 2000, Yükseklik: 4000, Derinlik: 2000)
+    // 📐 FİZİK KUTULARI 10.000 KAT BÜYÜK (Genişlik: 2000, Yükseklik: 4000, Derinlik: 2000)
     p1Body = createPhysicsPlayer(START_X - 3000, START_Y, START_Z, playerMat);
     p2Body = createPhysicsPlayer(START_X + 3000, START_Y, START_Z, playerMat);
 
-    const loader = new THREE.GLTFLoader();
+    // --- MODEL YÜKLEYİCİLER ---
+    const gltfLoader = new THREE.GLTFLoader();
+    const objLoader = new THREE.OBJLoader();
     
-    // P1 Görsel Model (10.000 Kat Büyük)
-    loader.load('assets/models/puppet_1.glb', (gltf) => {
+    // 1. Oyuncu (Puppet) Yükleme (.glb)
+    gltfLoader.load('assets/models/puppet_1.glb', (gltf) => {
         p1Mesh = gltf.scene;
         p1Mesh.scale.set(10000, 10000, 10000); 
         scene.add(p1Mesh);
@@ -68,15 +70,28 @@ function init() {
         scene.add(p1Mesh); checkModelsReady();
     });
 
-    // P2 Görsel Model (10.000 Kat Büyük)
-    loader.load('assets/models/soviet_robot.glb', (gltf) => {
-        p2Mesh = gltf.scene;
-        p2Mesh.scale.set(4500, 4500, 4500); 
+    // 🤖 2. Oyuncu (Robot) Çift Format Desteği (.obj veya .glb)
+    // Önce OBJ deniyoruz, eğer hata verirse otomatik GLB deneyecek
+    objLoader.load('assets/models/soviet_robot.obj', (obj) => {
+        p2Mesh = obj;
+        p2Mesh.scale.set(4500, 4500, 4500); // OBJ için devasa boyut
         scene.add(p2Mesh);
+        console.log("Robot OBJ olarak başarıyla yüklendi!");
         checkModelsReady();
-    }, undefined, () => {
-        p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(2000, 4000, 2000), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-        scene.add(p2Mesh); checkModelsReady();
+    }, undefined, (err) => {
+        console.log("OBJ bulunamadı veya yüklenemedi, GLB deneniyor...");
+        
+        // OBJ başarısız olursa GLB yüklemeyi dene
+        gltfLoader.load('assets/models/soviet_robot.glb', (gltf) => {
+            p2Mesh = gltf.scene;
+            p2Mesh.scale.set(4500, 4500, 4500); 
+            scene.add(p2Mesh);
+            checkModelsReady();
+        }, undefined, () => {
+            // İkisi de yoksa mavi/kırmızı test küpü koy
+            p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(2000, 4000, 2000), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+            scene.add(p2Mesh); checkModelsReady();
+        });
     });
 
     document.getElementById('play-btn').addEventListener('click', () => {
@@ -93,7 +108,7 @@ function init() {
     animate();
 }
 
-// --- HARİTA AYNI KALDI ---
+// --- HARİTA YÜKLEME (Yazım hatası düzeltildi) ---
 function loadGLBMap() {
     const loader = new THREE.GLTFLoader();
     loader.load('assets/models/harita1.glb', (gltf) => {
@@ -111,9 +126,10 @@ function loadGLBMap() {
                 const size = new THREE.Vector3(); box.getSize(size);
                 const center = new THREE.Vector3(); box.getCenter(center);
                 
+                // 🛠️ DÜZELTİLEN YER: Esat hataya sebep olan eşittir (=) işareti iki noktaya (:) çevrildi
                 const body = new CANNON.Body({
                     mass: 0,
-                    shape = new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2))
+                    shape: new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2))
                 });
                 body.position.set(center.x, center.y, center.z);
                 world.addBody(body);
@@ -130,7 +146,6 @@ function loadGLBMap() {
 }
 
 function createPhysicsPlayer(x, y, z, mat) {
-    // Kütle süper dev boyut için inanılmaz artırıldı (Mass: 50.000)
     const body = new CANNON.Body({ mass: 50000, material: mat });
     body.addShape(new CANNON.Box(new CANNON.Vec3(1000, 2000, 1000))); 
     body.position.set(x, y, z);
@@ -197,14 +212,12 @@ function animate() {
     if (isGameStarted) {
         world.step(1/60, dt, 3);
         
-        // 🏃 Yavaşlamayı çözmek için hızı 400'den 12.000'e çıkardım!
         const speed = 12000;
         p1Body.velocity.x = inputs.p1.moveX * speed;
         p1Body.velocity.z = inputs.p1.moveZ * speed;
         p2Body.velocity.x = inputs.p2.moveX * speed;
         p2Body.velocity.z = inputs.p2.moveZ * speed;
 
-        // Süper dev zıplama ivmesi
         if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 5.0) { p1Body.velocity.y = 1200; inputs.p1.jump = false; }
         if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 5.0) { p2Body.velocity.y = 1200; inputs.p2.jump = false; }
 
@@ -216,14 +229,13 @@ function animate() {
         }
     }
 
-    // 🎥 KAMERA TAKİBİ: Karakterler galaktik boyuta ulaştığı için kamera çok daha geriye çekildi
     const midX = (p1Body.position.x + p2Body.position.x) / 2;
     const midY = (p1Body.position.y + p2Body.position.y) / 2;
     const midZ = (p1Body.position.z + p2Body.position.z) / 2;
 
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, midX, 0.05);
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 12000, 0.05); // Karakterlerin üstten bakışı
-    camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 25000, 0.05); // Karakterlerin arkasından takip mesafesi
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 12000, 0.05); 
+    camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 25000, 0.05); 
 
     camera.lookAt(midX, midY + 1000, midZ - 2000);
 
