@@ -49,11 +49,31 @@
             color: #00ffcc;
             text-align: center;
         }
+        
+        /* 🟩 YÜKLENME BARI TASARIMI */
+        #progress-container {
+            width: 300px;
+            height: 20px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid #00ffcc;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 15px;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+        }
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: #00ffcc;
+            box-shadow: 0 0 10px #00ffcc;
+            transition: width 0.3s ease;
+        }
         #loading-text {
             font-size: 1.2rem;
             color: #888;
-            animation: pulse 1.5s infinite ease-in-out;
+            margin-top: 10px;
         }
+
         #play-btn {
             display: none;
             padding: 15px 40px;
@@ -66,6 +86,7 @@
             cursor: pointer;
             box-shadow: 0 5px 15px rgba(0, 255, 204, 0.4);
             transition: transform 0.2s, background 0.2s;
+            margin-top: 20px;
         }
         #play-btn:active {
             transform: scale(0.95);
@@ -100,7 +121,6 @@
             pointer-events: none;
         }
 
-        /* --- AKSİYON / ZIPLAMA BUTONLARI --- */
         .action-btn {
             position: absolute;
             bottom: 180px;
@@ -126,18 +146,16 @@
             right: 65px;
             background: linear-gradient(135deg, #ff2222, #aa0000);
         }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
-        }
     </style>
 </head>
 <body>
 
     <div id="menu-container">
         <h1>Robot Guys Co-Op</h1>
-        <div id="loading-text">Modeller Yükleniyor...</div>
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+        <div id="loading-text">Dosyalar aranıyor... (%0)</div>
         <button id="play-btn">OYNA</button>
     </div>
 
