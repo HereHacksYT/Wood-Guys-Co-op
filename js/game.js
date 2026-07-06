@@ -18,29 +18,23 @@ const inputs = {
     p2: { moveX: 0, moveZ: 0, jump: false }
 };
 
-// 🟩 BAR İLERLEME MANTIĞI
 function updateLoadingProgress() {
     if (isGameStarted) return;
     loadedCount++;
-    
     const percentage = Math.min(Math.floor((loadedCount / totalFilesToLoad) * 100), 100);
-    
     const progressBar = document.getElementById('progress-bar');
     const loadingText = document.getElementById('loading-text');
     
     if(progressBar) progressBar.style.width = percentage + '%';
     if(loadingText) loadingText.innerText = `Modeller Yükleniyor... (%${percentage})`;
 
-    if (loadedCount >= totalFilesToLoad) {
-        showPlayButton();
-    }
+    if (loadedCount >= totalFilesToLoad) { showPlayButton(); }
 }
 
 function showPlayButton() {
     const loadingText = document.getElementById('loading-text');
     const progressCont = document.getElementById('progress-container');
     const playBtn = document.getElementById('play-btn');
-    
     if(loadingText) loadingText.style.display = 'none';
     if(progressCont) progressCont.style.display = 'none';
     if(playBtn) playBtn.style.display = 'block';
@@ -65,7 +59,7 @@ function init() {
     dirLight.position.set(START_X + 200, START_Y + 500, START_Z + 200);
     scene.add(dirLight);
 
-    // 🛠️ Fizik Dünyası ve 10 Kat Artırılmış Yerçekimi
+    // Fizik Dünyası (10 Kat Yerçekimi)
     world = new CANNON.World();
     world.gravity.set(0, -350, 0); 
 
@@ -73,16 +67,12 @@ function init() {
     p1Body = createPhysicsPlayer(START_X - 25, START_Y + 20, START_Z, playerMat);
     p2Body = createPhysicsPlayer(START_X + 25, START_Y + 20, START_Z, playerMat);
 
-    // Zaman aşımı güvenlik duvarı
     setTimeout(() => {
         if (loadedCount < totalFilesToLoad) {
-            console.warn("Zaman aşımı koruması devrede.");
             const progressBar = document.getElementById('progress-bar');
             if(progressBar) progressBar.style.width = '100%';
-            
             if (!p1Mesh) fallbackP1(new THREE.MeshStandardMaterial({ color: 0x0055ff }));
             if (!p2Mesh) fallbackP2(new THREE.MeshStandardMaterial({ color: 0xff2222 }));
-            
             showPlayButton();
         }
     }, 2500);
@@ -91,25 +81,17 @@ function init() {
     const p1Mat = new THREE.MeshStandardMaterial({ color: 0x0055ff, roughness: 0.4 });
     const p2Mat = new THREE.MeshStandardMaterial({ color: 0xff2222, roughness: 0.4 });
 
-    // 👤 Oyuncu 1 Model Yükleme
     try {
         objLoader.load('assets/models/puppet_1.obj', (obj) => {
             obj.traverse((child) => { if (child.isMesh) child.material = p1Mat; });
-            p1Mesh = obj;
-            p1Mesh.scale.set(35, 35, 35); 
-            scene.add(p1Mesh);
-            updateLoadingProgress();
+            p1Mesh = obj; p1Mesh.scale.set(35, 35, 35); scene.add(p1Mesh); updateLoadingProgress();
         }, undefined, () => { fallbackP1(p1Mat); });
     } catch(e) { fallbackP1(p1Mat); }
 
-    // 🤖 Oyuncu 2 Model Yükleme
     try {
         objLoader.load('assets/models/soviet_robot.obj', (obj) => {
             obj.traverse((child) => { if (child.isMesh) child.material = p2Mat; });
-            p2Mesh = obj;
-            p2Mesh.scale.set(20, 20, 20); 
-            scene.add(p2Mesh);
-            updateLoadingProgress();
+            p2Mesh = obj; p2Mesh.scale.set(20, 20, 20); scene.add(p2Mesh); updateLoadingProgress();
         }, undefined, () => { fallbackP2(p2Mat); });
     } catch(e) { fallbackP2(p2Mat); }
 
@@ -130,7 +112,7 @@ function init() {
 function fallbackP1(mat) { if(!p1Mesh) { p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), mat); scene.add(p1Mesh); updateLoadingProgress(); } }
 function fallbackP2(mat) { if(!p2Mesh) { p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(15, 30, 15), mat); scene.add(p2Mesh); updateLoadingProgress(); } }
 
-// --- HARİTA YÜKLEME ---
+// --- HARİTA YÜKLEME VE AĞAÇ FİLTRESİ ---
 function loadGLBMap() {
     const loader = new THREE.GLTFLoader();
     loader.load('assets/models/harita1.glb', (gltf) => {
@@ -139,6 +121,18 @@ function loadGLBMap() {
         map.traverse((child) => {
             if (child.isMesh) {
                 child.receiveShadow = true; child.castShadow = true;
+
+                // 🌳 AĞAÇ VE YAPRAK ENGELLEME FİLTRESİ
+                const meshName = child.name.toLowerCase();
+                if (meshName.includes('tree') || meshName.includes('leaf') || 
+                    meshName.includes('agac') || meshName.includes('yaprak') || 
+                    meshName.includes('foliage') || meshName.includes('plant') ||
+                    meshName.includes('dekor')) {
+                    // Bu objeleri sadece çizdiriyoruz, Cannon.js gövdesi eklemeden pas geçiyoruz!
+                    return; 
+                }
+
+                // Sadece yollar, binalar ve zemin katı kutu haline getirilir
                 const box = new THREE.Box3().setFromObject(child);
                 const size = new THREE.Vector3(); box.getSize(size);
                 const center = new THREE.Vector3(); box.getCenter(center);
@@ -162,12 +156,12 @@ function createPhysicsPlayer(x, y, z, mat) {
     body.addShape(new CANNON.Box(new CANNON.Vec3(7.5, 15, 7.5))); 
     body.position.set(x, y, z);
     body.fixedRotation = true;
-    body.linearDamping = 0.1; // Havada süzülmeyi önleyen frenleme
+    body.linearDamping = 0.1;
     world.addBody(body);
     return body;
 }
 
-// --- DOKUNMATİK KONTROLLER ---
+// --- KONTROLLER ---
 function setupTouchControls() {
     setupJoystick('p1-joystick-zone', 'p1-joystick-stick', (x, z) => { inputs.p1.moveX = x; inputs.p1.moveZ = z; });
     setupJoystick('p2-joystick-zone', 'p2-joystick-stick', (x, z) => { inputs.p2.moveX = x; inputs.p2.moveZ = z; });
@@ -213,7 +207,7 @@ function resetPlayerToStart() {
     p2Body.position.set(START_X + 25, START_Y + 20, START_Z); p2Body.velocity.set(0,0,0);
 }
 
-// --- MAIN LOOP ---
+// --- ANA DÖNGÜ ---
 function animate() {
     requestAnimationFrame(animate);
     const time = performance.now();
@@ -227,7 +221,6 @@ function animate() {
         p1Body.velocity.x = inputs.p1.moveX * speed; p1Body.velocity.z = inputs.p1.moveZ * speed;
         p2Body.velocity.x = inputs.p2.moveX * speed; p2Body.velocity.z = inputs.p2.moveZ * speed;
 
-        // Ağır yerçekimine karşı dengeli zıplama kuvveti (140)
         if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 1.0) { p1Body.velocity.y = 140; inputs.p1.jump = false; }
         if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 1.0) { p2Body.velocity.y = 140; inputs.p2.jump = false; }
 
