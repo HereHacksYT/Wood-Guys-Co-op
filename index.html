@@ -5,152 +5,156 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Robot Guys Co-Op</title>
     <style>
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
+        body {
             margin: 0;
             padding: 0;
-        }
-        body, html {
-            width: 100%;
-            height: 100%;
             overflow: hidden;
-            background-color: #0f0f1a;
-            font-family: Arial, sans-serif;
+            background-color: #11141a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
         }
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
+
+        /* ─── YÜKLEME VE MENÜ EKRANI ─── */
         #menu-container {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #1e1e2f 0%, #0f0f1a 100%);
+            background-color: rgba(17, 20, 26, 0.95);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 9999;
-            color: #fff;
+            z-index: 999;
         }
+
         h1 {
-            font-size: 2.5rem;
-            margin-bottom: 20px;
+            color: #66ffcc;
+            font-size: 42px;
             text-transform: uppercase;
             letter-spacing: 3px;
-            color: #00ffcc;
-            text-shadow: 0 0 15px rgba(0, 255, 204, 0.6);
+            margin-bottom: 30px;
+            text-shadow: 0 0 15px rgba(102, 255, 204, 0.6);
             text-align: center;
         }
+
         #progress-container {
-            width: 280px;
-            height: 16px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border: 2px solid #00ffcc;
-            border-radius: 8px;
+            width: 300px;
+            height: 12px;
+            background-color: #222831;
+            border-radius: 6px;
+            border: 2px solid #66ffcc;
             overflow: hidden;
-            margin-top: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 10px rgba(102, 255, 204, 0.2);
         }
+
         #progress-bar {
             width: 0%;
             height: 100%;
-            background-color: #00ffcc;
-            box-shadow: 0 0 10px #00ffcc;
+            background-color: #66ffcc;
             transition: width 0.1s ease;
+            box-shadow: 0 0 8px #66ffcc;
         }
+
         #loading-text {
-            font-size: 1rem;
-            color: #a0a0b0;
-            margin-top: 12px;
+            color: #a0aec0;
+            font-size: 16px;
         }
+
         #play-btn {
             display: none;
-            padding: 15px 45px;
-            font-size: 1.5rem;
+            padding: 15px 40px;
+            font-size: 22px;
             font-weight: bold;
-            color: #10101e;
-            background: #00ffcc;
+            color: #11141a;
+            background-color: #66ffcc;
             border: none;
-            border-radius: 30px;
+            border-radius: 8px;
             cursor: pointer;
-            box-shadow: 0 5px 15px rgba(0, 255, 204, 0.4);
-            margin-top: 25px;
+            box-shadow: 0 0 15px rgba(102, 255, 204, 0.5);
+            transition: transform 0.1s ease;
         }
+        #play-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* ─── MOBİL DOKUNMATİK KONTROLLER ─── */
         .joystick-zone {
             position: absolute;
             bottom: 40px;
             width: 120px;
             height: 120px;
-            background: rgba(255, 255, 255, 0.08);
+            background-color: rgba(255, 255, 255, 0.1);
             border: 2px solid rgba(255, 255, 255, 0.2);
             border-radius: 50%;
             display: none;
             touch-action: none;
-            z-index: 5;
+            z-index: 10;
         }
         #p1-joystick-zone { left: 40px; }
         #p2-joystick-zone { right: 40px; }
+
         .joystick-stick {
             position: absolute;
             top: 35px;
             left: 35px;
             width: 50px;
             height: 50px;
-            background: rgba(255, 255, 255, 0.7);
+            background-color: rgba(255, 255, 255, 0.6);
             border-radius: 50%;
-            pointer-events: none;
+            touch-action: none;
         }
+
         .action-btn {
             position: absolute;
             bottom: 180px;
             width: 70px;
             height: 70px;
+            background-color: rgba(102, 255, 204, 0.3);
+            border: 2px solid #66ffcc;
             border-radius: 50%;
-            border: none;
+            color: #66ffcc;
             font-weight: bold;
-            font-size: 1.1rem;
-            color: #fff;
+            font-size: 16px;
             display: none;
             justify-content: center;
             align-items: center;
-            z-index: 5;
             touch-action: none;
+            z-index: 10;
+            box-shadow: 0 0 10px rgba(102, 255, 204, 0.2);
         }
-        #p1-action-btn { left: 65px; background: linear-gradient(135deg, #0055ff, #0033aa); }
-        #p2-action-btn { right: 65px; background: linear-gradient(135deg, #ff2222, #aa0000); }
+        #p1-action-btn { left: 65px; }
+        #p2-action-btn { right: 65px; }
     </style>
 </head>
 <body>
 
     <div id="menu-container">
-        <h1>Robot Guys Co-Op</h1>
+        <h1 id="game-title">Robot Guys Co-Op</h1>
         <div id="progress-container">
             <div id="progress-bar"></div>
         </div>
-        <div id="loading-text">Sistem başlatılıyor... (%0)</div>
+        <div id="loading-text">Bağlantı kuruluyor... (%0)</div>
         <button id="play-btn">OYNA</button>
     </div>
 
     <div id="p1-joystick-zone" class="joystick-zone">
         <div id="p1-joystick-stick" class="joystick-stick"></div>
     </div>
-    <button id="p1-action-btn" class="action-btn">Zıpla</button>
+    <div id="p1-action-btn" class="action-btn">Zıpla</div>
 
     <div id="p2-joystick-zone" class="joystick-zone">
         <div id="p2-joystick-stick" class="joystick-stick"></div>
     </div>
-    <button id="p2-action-btn" class="action-btn">Zıpla</button>
+    <div id="p2-action-btn" class="action-btn">Zıpla</div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cannon@0.6.2/build/cannon.min.js"></script>
 
-    <script src="js/game.js?v=10.0.2"></script>
+    <script src="js/game.js"></script>
 </body>
 </html>
