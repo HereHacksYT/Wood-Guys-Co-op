@@ -1,68 +1,179 @@
-export const inputs = {
-    p1: { moveX: 0, jump: false },
-    p2: { moveX: 0, jump: false }
-};
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Robot Guys Co-Op</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0f0f1a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
 
-const activeKeys = {};
-window.addEventListener('keydown', (e) => { activeKeys[e.code] = true; });
-window.addEventListener('keyup', (e) => { activeKeys[e.code] = false; });
+        /* --- MENÜ VE YÜKLEME EKRANI --- */
+        #menu-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e1e2f 0%, #0f0f1a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            color: #fff;
+        }
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 15px rgba(0, 255, 204, 0.6);
+            color: #00ffcc;
+            text-align: center;
+        }
+        
+        /* 🟩 GARANTİLİ YÜKLENME BARI */
+        #progress-container {
+            width: 280px;
+            height: 16px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid #00ffcc;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 15px;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+        }
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: #00ffcc;
+            box-shadow: 0 0 10px #00ffcc;
+            transition: width 0.2s ease;
+        }
+        #loading-text {
+            font-size: 1.1rem;
+            color: #a0a0b0;
+            margin-top: 12px;
+        }
 
-export function setupTouchControls() {
-    setupJoystick('p1-joystick-zone', 'p1-joystick-stick', (x) => { inputs.p1.moveX = x; });
-    document.getElementById('p1-action-btn').addEventListener('touchstart', () => { inputs.p1.jump = true; });
-    document.getElementById('p1-action-btn').addEventListener('touchend', () => { inputs.p1.jump = false; });
+        #play-btn {
+            display: none;
+            padding: 15px 45px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #10101e;
+            background: #00ffcc;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 255, 204, 0.4);
+            transition: transform 0.2s, background 0.2s;
+            margin-top: 25px;
+        }
+        #play-btn:active {
+            transform: scale(0.95);
+            background: #00ccaa;
+        }
 
-    setupJoystick('p2-joystick-zone', 'p2-joystick-stick', (x) => { inputs.p2.moveX = x; });
-    document.getElementById('p2-action-btn').addEventListener('touchstart', () => { inputs.p2.jump = true; });
-    document.getElementById('p2-action-btn').addEventListener('touchend', () => { inputs.p2.jump = false; });
-}
+        /* --- MOBİL KONTROLLER --- */
+        .joystick-zone {
+            position: absolute;
+            bottom: 40px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: none;
+            touch-action: none;
+            z-index: 5;
+        }
+        #p1-joystick-zone { left: 40px; }
+        #p2-joystick-zone { right: 40px; }
 
-function setupJoystick(zoneId, stickId, callback) {
-    const zone = document.getElementById(zoneId);
-    const stick = document.getElementById(stickId);
-    let startX = 0;
+        .joystick-stick {
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }
 
-    zone.addEventListener('touchstart', (e) => {
-        startX = e.touches[0].clientX;
-    });
+        .action-btn {
+            position: absolute;
+            bottom: 180px;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #fff;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+            z-index: 5;
+            touch-action: none;
+        }
+        #p1-action-btn {
+            left: 65px;
+            background: linear-gradient(135deg, #0055ff, #0033aa);
+        }
+        #p2-action-btn {
+            right: 65px;
+            background: linear-gradient(135deg, #ff2222, #aa0000);
+        }
+    </style>
+</head>
+<body>
 
-    zone.addEventListener('touchmove', (e) => {
-        const touchX = e.touches[0].clientX;
-        let deltaX = touchX - startX;
-        deltaX = Math.max(-28, Math.min(28, deltaX));
-        stick.style.transform = `translateX(${deltaX}px)`;
-        callback(deltaX / 28);
-    });
+    <div id="menu-container">
+        <h1>Robot Guys Co-Op</h1>
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+        <div id="loading-text">Bağlantı kuruluyor... (%0)</div>
+        <button id="play-btn">OYNA</button>
+    </div>
 
-    zone.addEventListener('touchend', () => {
-        stick.style.transform = `translate(0px, 0px)`;
-        callback(0);
-    });
-}
+    <div id="p1-joystick-zone" class="joystick-zone">
+        <div id="p1-joystick-stick" class="joystick-stick"></div>
+    </div>
+    <button id="p1-action-btn" class="action-btn">Zıpla</button>
 
-export function handleControls(p1Body, p2Body) {
-    const speed = 7;
-    const jumpForce = 8;
+    <div id="p2-joystick-zone" class="joystick-zone">
+        <div id="p2-joystick-stick" class="joystick-stick"></div>
+    </div>
+    <button id="p2-action-btn" class="action-btn">Zıpla</button>
 
-    // Oyuncu 1
-    if (inputs.p1.moveX !== 0) p1Body.velocity.x = inputs.p1.moveX * speed;
-    else if (activeKeys['KeyA']) p1Body.velocity.x = -speed;
-    else if (activeKeys['KeyD']) p1Body.velocity.x = speed;
-    else p1Body.velocity.x = 0;
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cannon@0.0.6/build/cannon.min.js"></script>
 
-    if ((inputs.p1.jump || activeKeys['KeyW']) && Math.abs(p1Body.velocity.y) < 0.1) {
-        p1Body.velocity.y = jumpForce;
-        inputs.p1.jump = false;
-    }
-
-    // Oyuncu 2
-    if (inputs.p2.moveX !== 0) p2Body.velocity.x = inputs.p2.moveX * speed;
-    else if (activeKeys['ArrowLeft']) p2Body.velocity.x = -speed;
-    else if (activeKeys['ArrowRight']) p2Body.velocity.x = speed;
-    else p2Body.velocity.x = 0;
-
-    if ((inputs.p2.jump || activeKeys['ArrowUp']) && Math.abs(p2Body.velocity.y) < 0.1) {
-        p2Body.velocity.y = jumpForce;
-        inputs.p2.jump = false;
-    }
-}
+    <script src="js/game.js"></script>
+</body>
+</html>
