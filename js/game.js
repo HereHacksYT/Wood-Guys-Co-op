@@ -8,9 +8,9 @@ let levelObjects = [];
 let lastTime = performance.now();
 let activeTouches = {};
 
-// 📍 İstediğin gibi doğma noktası tam olarak sıfırlandı
+// 📍 Doğma noktası sıfır noktası
 const START_X = 0;
-const START_Y = 20; // Havadan yere sert düşmeleri için biraz yukardan başlatıyoruz
+const START_Y = 20; 
 const START_Z = 0;
 
 const inputs = {
@@ -43,7 +43,7 @@ function showPlayButton() {
 // --- INITIALIZATION ---
 function init() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
+    scene.background = new THREE.Color(0x6ba5d6); // Gökyüzü mavisini de hafif yumuşattık
 
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 15000);
 
@@ -52,10 +52,12 @@ function init() {
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
+    // 💡 Göz alan parlaklığı çözmek için ışık şiddetlerini düşürdük (1.4 -> 0.7)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
     
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    // Güneş ışığını da azalttık (1.0 -> 0.5)
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
     dirLight.position.set(START_X + 200, START_Y + 500, START_Z + 200);
     scene.add(dirLight);
 
@@ -78,10 +80,10 @@ function init() {
     }, 2500);
 
     const objLoader = new THREE.OBJLoader();
-    const p1Mat = new THREE.MeshStandardMaterial({ color: 0x0055ff, roughness: 0.4 });
-    const p2Mat = new THREE.MeshStandardMaterial({ color: 0xff2222, roughness: 0.4 });
+    const p1Mat = new THREE.MeshStandardMaterial({ color: 0x0044cc, roughness: 0.5 }); // Karakter renkleri de hafif koyulaştı
+    const p2Mat = new THREE.MeshStandardMaterial({ color: 0xcc1111, roughness: 0.5 });
 
-    // 👤 Oyuncu 1 - Haritaya göre boyutları küçültüldü (Scale: 5)
+    // Oyuncu 1
     try {
         objLoader.load('assets/models/puppet_1.obj', (obj) => {
             obj.traverse((child) => { if (child.isMesh) child.material = p1Mat; });
@@ -89,7 +91,7 @@ function init() {
         }, undefined, () => { fallbackP1(p1Mat); });
     } catch(e) { fallbackP1(p1Mat); }
 
-    // 🤖 Oyuncu 2 - Haritaya göre boyutları küçültüldü (Scale: 3)
+    // Oyuncu 2
     try {
         objLoader.load('assets/models/soviet_robot.obj', (obj) => {
             obj.traverse((child) => { if (child.isMesh) child.material = p2Mat; });
@@ -106,7 +108,7 @@ function init() {
         document.getElementById('p2-action-btn').style.display = 'flex';
     });
 
-    loadOBJMap(); // Yeni OBJ yükleyici tetikleniyor
+    loadOBJMap();
     setupTouchControls();
     animate();
 }
@@ -117,7 +119,13 @@ function fallbackP2(mat) { if(!p2Mesh) { p2Mesh = new THREE.Mesh(new THREE.BoxGe
 // --- YENİ HARİTA.OBJ YÜKLEYİCİ ---
 function loadOBJMap() {
     const objLoader = new THREE.OBJLoader();
-    const mapMat = new THREE.MeshStandardMaterial({ color: 0x76a973, roughness: 0.8 }); // Yeşilimsi zemin rengi
+    
+    // 🌳 Rengi aşırı açık yeşilden (light green), tatlı koyu bir orman/çimen yeşiline (0x3b6e22) çevirdik
+    const mapMat = new THREE.MeshStandardMaterial({ 
+        color: 0x3b6e22, 
+        roughness: 0.9,  // Parlamayı azaltmak için pürüzlülüğü artırdık
+        metalness: 0.1
+    });
 
     objLoader.load('assets/models/Harita.obj', (obj) => {
         scene.add(obj);
@@ -127,7 +135,7 @@ function loadOBJMap() {
                 child.receiveShadow = true; 
                 child.castShadow = true;
 
-                // Ağaç/Yaprak filtresi korundu
+                // Ağaç/Yaprak filtresi
                 const meshName = child.name.toLowerCase();
                 if (meshName.includes('tree') || meshName.includes('leaf') || 
                     meshName.includes('agac') || meshName.includes('yaprak') || 
@@ -156,7 +164,7 @@ function loadOBJMap() {
 
 function createFallbackGround() {
     const groundGeo = new THREE.BoxGeometry(500, 2, 500);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x224411 }); // Yedek zemin de koyu yeşil
     const groundMesh = new THREE.Mesh(groundGeo, groundMat);
     groundMesh.position.set(0, -1, 0);
     scene.add(groundMesh);
@@ -168,7 +176,6 @@ function createFallbackGround() {
 }
 
 function createPhysicsPlayer(x, y, z, mat) {
-    // Küçük karakterler için hitbox küçültüldü (Genişlik: 1, Yükseklik: 2, Derinlik: 1)
     const body = new CANNON.Body({ mass: 300, material: mat });
     body.addShape(new CANNON.Box(new CANNON.Vec3(1, 2, 1))); 
     body.position.set(x, y, z);
@@ -234,11 +241,10 @@ function animate() {
 
     if (isGameStarted) {
         world.step(1/60, dt, 3);
-        const speed = 120; // Karakterler küçüldüğü için hız biraz dengelendi
+        const speed = 120; 
         p1Body.velocity.x = inputs.p1.moveX * speed; p1Body.velocity.z = inputs.p1.moveZ * speed;
         p2Body.velocity.x = inputs.p2.moveX * speed; p2Body.velocity.z = inputs.p2.moveZ * speed;
 
-        // Küçülen gövdeye göre zıplama kuvveti dengelendi (90)
         if (inputs.p1.jump && Math.abs(p1Body.velocity.y) < 1.0) { p1Body.velocity.y = 90; inputs.p1.jump = false; }
         if (inputs.p2.jump && Math.abs(p2Body.velocity.y) < 1.0) { p2Body.velocity.y = 90; inputs.p2.jump = false; }
 
@@ -252,11 +258,10 @@ function animate() {
     const midY = (p1Body.position.y + p2Body.position.y) / 2;
     const midZ = (p1Body.position.z + p2Body.position.z) / 2;
 
-    // 🎥 YANDAN GÖRÜNÜŞ (SIDE-SCOLLER / PLATFORMER AYARI)
-    // Kamera Z ekseninde (tam yan profilde) duruyor ve X ekseninde koşan oyuncuları takip ediyor.
+    // 🎥 Yandan görünüş kamera takibi dengelendi
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, midX, 0.05);
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 25, 0.05); // Hafif yukardan bakış
-    camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 60, 0.05); // Mesafeli yan takip
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 25, 0.05); 
+    camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 60, 0.05); 
 
     camera.lookAt(midX, midY + 5, midZ);
 
