@@ -16,7 +16,7 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #000;
+            background-color: #0f0f1a;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         canvas {
@@ -50,13 +50,13 @@
             text-align: center;
         }
         
-        /* 🟩 YÜKLENME BARI TASARIMI */
+        /* 🟩 GARANTİLİ YÜKLENME BARI */
         #progress-container {
-            width: 300px;
-            height: 20px;
+            width: 280px;
+            height: 16px;
             background-color: rgba(255, 255, 255, 0.1);
             border: 2px solid #00ffcc;
-            border-radius: 10px;
+            border-radius: 8px;
             overflow: hidden;
             margin-top: 15px;
             box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
@@ -66,17 +66,17 @@
             height: 100%;
             background-color: #00ffcc;
             box-shadow: 0 0 10px #00ffcc;
-            transition: width 0.3s ease;
+            transition: width 0.2s ease;
         }
         #loading-text {
-            font-size: 1.2rem;
-            color: #888;
-            margin-top: 10px;
+            font-size: 1.1rem;
+            color: #a0a0b0;
+            margin-top: 12px;
         }
 
         #play-btn {
             display: none;
-            padding: 15px 40px;
+            padding: 15px 45px;
             font-size: 1.5rem;
             font-weight: bold;
             color: #10101e;
@@ -86,7 +86,7 @@
             cursor: pointer;
             box-shadow: 0 5px 15px rgba(0, 255, 204, 0.4);
             transition: transform 0.2s, background 0.2s;
-            margin-top: 20px;
+            margin-top: 25px;
         }
         #play-btn:active {
             transform: scale(0.95);
@@ -155,7 +155,7 @@
         <div id="progress-container">
             <div id="progress-bar"></div>
         </div>
-        <div id="loading-text">Dosyalar aranıyor... (%0)</div>
+        <div id="loading-text">Bağlantı kuruluyor... (%0)</div>
         <button id="play-btn">OYNA</button>
     </div>
 
