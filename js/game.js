@@ -43,7 +43,7 @@ function showPlayButton() {
 // --- INITIALIZATION ---
 function init() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x6ba5d6); // Gökyüzü mavisini de hafif yumuşattık
+    scene.background = new THREE.Color(0x6ba5d6); // Yumuşatılmış gökyüzü mavisi
 
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 15000);
 
@@ -52,11 +52,10 @@ function init() {
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // 💡 Göz alan parlaklığı çözmek için ışık şiddetlerini düşürdük (1.4 -> 0.7)
+    // 💡 Dengelenmiş ışık şiddetleri (Gözü almaması için azaltıldı)
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
     
-    // Güneş ışığını da azalttık (1.0 -> 0.5)
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
     dirLight.position.set(START_X + 200, START_Y + 500, START_Z + 200);
     scene.add(dirLight);
@@ -80,10 +79,10 @@ function init() {
     }, 2500);
 
     const objLoader = new THREE.OBJLoader();
-    const p1Mat = new THREE.MeshStandardMaterial({ color: 0x0044cc, roughness: 0.5 }); // Karakter renkleri de hafif koyulaştı
+    const p1Mat = new THREE.MeshStandardMaterial({ color: 0x0044cc, roughness: 0.5 }); 
     const p2Mat = new THREE.MeshStandardMaterial({ color: 0xcc1111, roughness: 0.5 });
 
-    // Oyuncu 1
+    // Oyuncu 1 Model Yükleme
     try {
         objLoader.load('assets/models/puppet_1.obj', (obj) => {
             obj.traverse((child) => { if (child.isMesh) child.material = p1Mat; });
@@ -91,7 +90,7 @@ function init() {
         }, undefined, () => { fallbackP1(p1Mat); });
     } catch(e) { fallbackP1(p1Mat); }
 
-    // Oyuncu 2
+    // Oyuncu 2 Model Yükleme
     try {
         objLoader.load('assets/models/soviet_robot.obj', (obj) => {
             obj.traverse((child) => { if (child.isMesh) child.material = p2Mat; });
@@ -116,26 +115,19 @@ function init() {
 function fallbackP1(mat) { if(!p1Mesh) { p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 2), mat); scene.add(p1Mesh); updateLoadingProgress(); } }
 function fallbackP2(mat) { if(!p2Mesh) { p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 2), mat); scene.add(p2Mesh); updateLoadingProgress(); } }
 
-// --- YENİ HARİTA.OBJ YÜKLEYİCİ ---
+// --- HARİTA YÜKLEME (RENKLERİ KORUYAN SÜRÜM) ---
 function loadOBJMap() {
     const objLoader = new THREE.OBJLoader();
-    
-    // 🌳 Rengi aşırı açık yeşilden (light green), tatlı koyu bir orman/çimen yeşiline (0x3b6e22) çevirdik
-    const mapMat = new THREE.MeshStandardMaterial({ 
-        color: 0x3b6e22, 
-        roughness: 0.9,  // Parlamayı azaltmak için pürüzlülüğü artırdık
-        metalness: 0.1
-    });
 
     objLoader.load('assets/models/Harita.obj', (obj) => {
         scene.add(obj);
         obj.traverse((child) => {
             if (child.isMesh) {
-                child.material = mapMat;
+                // 🛠️ Tek renge boyayan satır kaldırıldı. Model kendi orijinal Blender renklerini kullanacak.
                 child.receiveShadow = true; 
                 child.castShadow = true;
 
-                // Ağaç/Yaprak filtresi
+                // Ağaç/Yaprak filtresi korundu
                 const meshName = child.name.toLowerCase();
                 if (meshName.includes('tree') || meshName.includes('leaf') || 
                     meshName.includes('agac') || meshName.includes('yaprak') || 
@@ -164,7 +156,7 @@ function loadOBJMap() {
 
 function createFallbackGround() {
     const groundGeo = new THREE.BoxGeometry(500, 2, 500);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x224411 }); // Yedek zemin de koyu yeşil
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
     const groundMesh = new THREE.Mesh(groundGeo, groundMat);
     groundMesh.position.set(0, -1, 0);
     scene.add(groundMesh);
@@ -185,7 +177,7 @@ function createPhysicsPlayer(x, y, z, mat) {
     return body;
 }
 
-// --- MOBILE KONTROLLER ---
+// --- DOKUNMATİK MOBİL KONTROLLER ---
 function setupTouchControls() {
     setupJoystick('p1-joystick-zone', 'p1-joystick-stick', (x, z) => { inputs.p1.moveX = x; inputs.p1.moveZ = z; });
     setupJoystick('p2-joystick-zone', 'p2-joystick-stick', (x, z) => { inputs.p2.moveX = x; inputs.p2.moveZ = z; });
@@ -231,7 +223,7 @@ function resetPlayerToStart() {
     p2Body.position.set(START_X + 5, START_Y, START_Z); p2Body.velocity.set(0,0,0);
 }
 
-// --- ANA DÖNGÜ & YANDAN GÖRÜNÜŞ KAMERASI ---
+// --- ANA OYUN DÖNGÜSÜ & YANDAN KONTROL KAMERASI ---
 function animate() {
     requestAnimationFrame(animate);
     const time = performance.now();
@@ -258,7 +250,7 @@ function animate() {
     const midY = (p1Body.position.y + p2Body.position.y) / 2;
     const midZ = (p1Body.position.z + p2Body.position.z) / 2;
 
-    // 🎥 Yandan görünüş kamera takibi dengelendi
+    // 🎥 Kameranın 2D/3.5D Yandan Platformer Takip Ayarı
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, midX, 0.05);
     camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 25, 0.05); 
     camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 60, 0.05); 
