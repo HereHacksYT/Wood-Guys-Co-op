@@ -1,29 +1,22 @@
 // ==========================================
-// 🎮 ROBOT GUYS CO-OP - KONTROLLER
+// 🎮 ROBOT GUYS CO-OP - KONTROLLER (TAM)
 // ==========================================
 
-// Global input nesnesi (game.js ile paylaşılacak)
 const inputs = {
     p1: { moveX: 0, moveZ: 0, jump: false },
     p2: { moveX: 0, moveZ: 0, jump: false }
 };
 
-// --- KLAVYE KONTROLLERİ ---
+// --- KLAVYE ---
 const keys = {};
 
 document.addEventListener('keydown', (e) => {
     keys[e.key] = true;
-    // P1 Zıplama (Space)
     if (e.key === ' ') { e.preventDefault(); inputs.p1.jump = true; }
-    // P2 Zıplama (Enter)
     if (e.key === 'Enter') { e.preventDefault(); inputs.p2.jump = true; }
 });
+document.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
-document.addEventListener('keyup', (e) => {
-    keys[e.key] = false;
-});
-
-// Her frame'de klavye girişlerini işle (game.js'de çağrılacak)
 function updateKeyboardInputs() {
     // P1: WASD
     let x1 = 0, z1 = 0;
@@ -31,7 +24,6 @@ function updateKeyboardInputs() {
     if (keys['s'] || keys['S']) z1 = 1;
     if (keys['a'] || keys['A']) x1 = -1;
     if (keys['d'] || keys['D']) x1 = 1;
-    // Normalize et
     const len1 = Math.sqrt(x1*x1 + z1*z1);
     if (len1 > 0) { x1 /= len1; z1 /= len1; }
     inputs.p1.moveX = x1;
@@ -49,7 +41,7 @@ function updateKeyboardInputs() {
     inputs.p2.moveZ = z2;
 }
 
-// --- DOKUNMATİK (MOBİL) JOYSTICK ---
+// --- DOKUNMATİK JOYSTICK ---
 let activeTouches = {};
 
 function setupJoystick(zoneId, stickId, playerKey) {
@@ -76,10 +68,8 @@ function setupJoystick(zoneId, stickId, playerKey) {
                 dx = Math.cos(angle) * dist;
                 dy = Math.sin(angle) * dist;
                 stick.style.transform = `translate(${dx}px, ${dy}px)`;
-                const normX = dx / 30;
-                const normZ = dy / 30;
-                inputs[playerKey].moveX = normX;
-                inputs[playerKey].moveZ = normZ;
+                inputs[playerKey].moveX = dx / 30;
+                inputs[playerKey].moveZ = dy / 30;
                 break;
             }
         }
@@ -95,7 +85,6 @@ function setupJoystick(zoneId, stickId, playerKey) {
     zone.addEventListener('touchcancel', endHandle);
 }
 
-// Butonlar için (Zıplama)
 function setupActionButton(btnId, playerKey) {
     const btn = document.getElementById(btnId);
     if (!btn) return;
@@ -103,13 +92,8 @@ function setupActionButton(btnId, playerKey) {
         e.preventDefault();
         inputs[playerKey].jump = true;
     });
-    btn.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        // jump false yapmıyoruz, game.js'de sıfırlanacak
-    });
 }
 
-// Tüm kontrolleri başlat
 function initControls() {
     setupJoystick('p1-joystick-zone', 'p1-joystick-stick', 'p1');
     setupJoystick('p2-joystick-zone', 'p2-joystick-stick', 'p2');
