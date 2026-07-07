@@ -1,14 +1,14 @@
 // --- GLOBAL DEĞİŞKENLER ---
 let scene, camera, renderer, world;
-let p1Mesh, p2Mesh, p1Body, p2Body; 
+let p1Mesh, p2Mesh, p1Body, p2Body, finishMesh; 
 let isGameStarted = false;
 let loadedCount = 0;
-const totalFilesToLoad = 3; // puppet, soviet ve harita
+const totalFilesToLoad = 3; 
 let levelObjects = []; 
 let lastTime = performance.now();
 let activeTouches = {};
 
-// Doğma sıfır noktaları
+// 📍 Doğma noktası sıfır noktası
 const START_X = 0;
 const START_Y = 20; 
 const START_Z = 0;
@@ -40,9 +40,10 @@ function showPlayButton() {
     if(playBtn) playBtn.style.display = 'block';
 }
 
+// --- INITIALIZATION ---
 function init() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a202c); // Arka plan koyu tema yapıldı
+    scene.background = new THREE.Color(0x6ba5d6); // Yumuşatılmış gökyüzü mavisi
 
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 15000);
 
@@ -51,13 +52,15 @@ function init() {
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    // 💡 Dengelenmiş ışık şiddetleri (Gözü almaması için azaltıldı)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
     
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
     dirLight.position.set(START_X + 200, START_Y + 500, START_Z + 200);
     scene.add(dirLight);
 
+    // Fizik Dünyası (10 Kat Ağır Yerçekimi)
     world = new CANNON.World();
     world.gravity.set(0, -350, 0); 
 
@@ -65,32 +68,35 @@ function init() {
     p1Body = createPhysicsPlayer(START_X - 5, START_Y, START_Z, playerMat);
     p2Body = createPhysicsPlayer(START_X + 5, START_Y, START_Z, playerMat);
 
-    // Güvenlik kilidi (Her ihtimale karşı donmayı engeller)
     setTimeout(() => {
         if (loadedCount < totalFilesToLoad) {
+            const progressBar = document.getElementById('progress-bar');
+            if(progressBar) progressBar.style.width = '100%';
+            if (!p1Mesh) fallbackP1(new THREE.MeshStandardMaterial({ color: 0x0055ff }));
+            if (!p2Mesh) fallbackP2(new THREE.MeshStandardMaterial({ color: 0xff2222 }));
             showPlayButton();
         }
-    }, 3000);
+    }, 2500);
 
     const objLoader = new THREE.OBJLoader();
-    const p1Mat = new THREE.MeshStandardMaterial({ color: 0x0055ff, roughness: 0.4 }); 
-    const p2Mat = new THREE.MeshStandardMaterial({ color: 0xff2222, roughness: 0.4 });
+    const p1Mat = new THREE.MeshStandardMaterial({ color: 0x0044cc, roughness: 0.5 }); 
+    const p2Mat = new THREE.MeshStandardMaterial({ color: 0xcc1111, roughness: 0.5 });
 
-    // P1 Yükle
+    // Oyuncu 1 Model Yükleme
     try {
         objLoader.load('assets/models/puppet_1.obj', (obj) => {
             obj.traverse((child) => { if (child.isMesh) child.material = p1Mat; });
             p1Mesh = obj; p1Mesh.scale.set(5, 5, 5); scene.add(p1Mesh); updateLoadingProgress();
-        }, undefined, () => { updateLoadingProgress(); });
-    } catch(e) { updateLoadingProgress(); }
+        }, undefined, () => { fallbackP1(p1Mat); });
+    } catch(e) { fallbackP1(p1Mat); }
 
-    // P2 Yükle
+    // Oyuncu 2 Model Yükleme
     try {
         objLoader.load('assets/models/soviet_robot.obj', (obj) => {
             obj.traverse((child) => { if (child.isMesh) child.material = p2Mat; });
             p2Mesh = obj; p2Mesh.scale.set(3, 3, 3); scene.add(p2Mesh); updateLoadingProgress();
-        }, undefined, () => { updateLoadingProgress(); });
-    } catch(e) { updateLoadingProgress(); }
+        }, undefined, () => { fallbackP2(p2Mat); });
+    } catch(e) { fallbackP2(p2Mat); }
 
     document.getElementById('play-btn').addEventListener('click', () => {
         isGameStarted = true;
@@ -106,74 +112,57 @@ function init() {
     animate();
 }
 
-// --- 🛠️ MAP YÜKLEYİCİ (FOTOĞRAF DETAYLI) ---
+function fallbackP1(mat) { if(!p1Mesh) { p1Mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 2), mat); scene.add(p1Mesh); updateLoadingProgress(); } }
+function fallbackP2(mat) { if(!p2Mesh) { p2Mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 2), mat); scene.add(p2Mesh); updateLoadingProgress(); } }
+
+// --- HARİTA YÜKLEME (RENKLERİ KORUYAN SÜRÜM) ---
 function loadOBJMap() {
-    const textureLoader = new THREE.TextureLoader();
-    
-    // GitHub'da duran boşluklu tam dosya adı yazıldı
-    textureLoader.load('assets/textures/PNG görüntüsü.png', (mapTexture) => {
-        
-        mapTexture.wrapS = THREE.RepeatWrapping;
-        mapTexture.wrapT = THREE.RepeatWrapping;
+    const objLoader = new THREE.OBJLoader();
 
-        const mapMat = new THREE.MeshStandardMaterial({ 
-            map: mapTexture,
-            roughness: 0.8
-        });
+    objLoader.load('assets/models/Harita.obj', (obj) => {
+        scene.add(obj);
+        obj.traverse((child) => {
+            if (child.isMesh) {
+                // 🛠️ Tek renge boyayan satır kaldırıldı. Model kendi orijinal Blender renklerini kullanacak.
+                child.receiveShadow = true; 
+                child.castShadow = true;
 
-        const objLoader = new THREE.OBJLoader();
-        objLoader.load('assets/models/Harita.obj', (obj) => {
-            scene.add(obj);
-            obj.traverse((child) => {
-                if (child.isMesh) {
-                    child.material = mapMat; 
-                    child.receiveShadow = true; 
-                    child.castShadow = true;
-
-                    const meshName = child.name.toLowerCase();
-                    if (meshName.includes('tree') || meshName.includes('leaf') || meshName.includes('agac')) return;
-
-                    const box = new THREE.Box3().setFromObject(child);
-                    const size = new THREE.Vector3(); box.getSize(size);
-                    const center = new THREE.Vector3(); box.getCenter(center);
-                    
-                    const body = new CANNON.Body({ mass: 0 });
-                    body.addShape(new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2)));
-                    body.position.set(center.x, center.y, center.z);
-                    world.addBody(body);
-                    levelObjects.push({ mesh: child, body: body });
+                // Ağaç/Yaprak filtresi korundu
+                const meshName = child.name.toLowerCase();
+                if (meshName.includes('tree') || meshName.includes('leaf') || 
+                    meshName.includes('agac') || meshName.includes('yaprak') || 
+                    meshName.includes('dekor')) {
+                    return; 
                 }
-            });
-            updateLoadingProgress();
-        }, undefined, () => { handleMapError(); });
 
-    }, undefined, () => {
-        console.warn("Doku resmi bulunamadı, düz renk yeşile dönülüyor.");
-        const objLoader = new THREE.OBJLoader();
-        objLoader.load('assets/models/Harita.obj', (obj) => {
-            scene.add(obj);
-            obj.traverse((child) => {
-                if(child.isMesh) child.material = new THREE.MeshStandardMaterial({ color: 0x3b6e22 });
-            });
-            updateLoadingProgress();
-        }, undefined, () => { handleMapError(); });
+                const box = new THREE.Box3().setFromObject(child);
+                const size = new THREE.Vector3(); box.getSize(size);
+                const center = new THREE.Vector3(); box.getCenter(center);
+                
+                const body = new CANNON.Body({ mass: 0 });
+                body.addShape(new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2)));
+                body.position.set(center.x, center.y, center.z);
+                world.addBody(body);
+                levelObjects.push({ mesh: child, body: body });
+            }
+        });
+        updateLoadingProgress();
+    }, undefined, (err) => {
+        console.error("Harita yüklenemedi, yedek zemin açılıyor:", err);
+        createFallbackGround();
+        updateLoadingProgress();
     });
 }
 
-function handleMapError() {
-    createFallbackGround();
-    updateLoadingProgress();
-}
-
 function createFallbackGround() {
-    const groundGeo = new THREE.BoxGeometry(1000, 2, 1000);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x3b6e22 });
+    const groundGeo = new THREE.BoxGeometry(500, 2, 500);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
     const groundMesh = new THREE.Mesh(groundGeo, groundMat);
     groundMesh.position.set(0, -1, 0);
     scene.add(groundMesh);
 
     const groundBody = new CANNON.Body({ mass: 0 });
-    groundBody.addShape(new CANNON.Box(new CANNON.Vec3(500, 1, 500)));
+    groundBody.addShape(new CANNON.Box(new CANNON.Vec3(250, 1, 250)));
     groundBody.position.set(0, -1, 0);
     world.addBody(groundBody);
 }
@@ -188,6 +177,7 @@ function createPhysicsPlayer(x, y, z, mat) {
     return body;
 }
 
+// --- DOKUNMATİK MOBİL KONTROLLER ---
 function setupTouchControls() {
     setupJoystick('p1-joystick-zone', 'p1-joystick-stick', (x, z) => { inputs.p1.moveX = x; inputs.p1.moveZ = z; });
     setupJoystick('p2-joystick-zone', 'p2-joystick-stick', (x, z) => { inputs.p2.moveX = x; inputs.p2.moveZ = z; });
@@ -233,6 +223,7 @@ function resetPlayerToStart() {
     p2Body.position.set(START_X + 5, START_Y, START_Z); p2Body.velocity.set(0,0,0);
 }
 
+// --- ANA OYUN DÖNGÜSÜ & YANDAN KONTROL KAMERASI ---
 function animate() {
     requestAnimationFrame(animate);
     const time = performance.now();
@@ -259,6 +250,7 @@ function animate() {
     const midY = (p1Body.position.y + p2Body.position.y) / 2;
     const midZ = (p1Body.position.z + p2Body.position.z) / 2;
 
+    // 🎥 Kameranın 2D/3.5D Yandan Platformer Takip Ayarı
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, midX, 0.05);
     camera.position.y = THREE.MathUtils.lerp(camera.position.y, midY + 25, 0.05); 
     camera.position.z = THREE.MathUtils.lerp(camera.position.z, midZ + 60, 0.05); 
