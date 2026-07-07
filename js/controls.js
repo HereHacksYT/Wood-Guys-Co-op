@@ -1,179 +1,118 @@
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Robot Guys Co-Op</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-            margin: 0;
-            padding: 0;
-        }
-        body, html {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #0f0f1a;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
+// ==========================================
+// 🎮 ROBOT GUYS CO-OP - KONTROLLER
+// ==========================================
 
-        /* --- MENÜ VE YÜKLEME EKRANI --- */
-        #menu-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #1e1e2f 0%, #0f0f1a 100%);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
-            color: #fff;
-        }
-        h1 {
-            font-size: 3rem;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            text-shadow: 0 0 15px rgba(0, 255, 204, 0.6);
-            color: #00ffcc;
-            text-align: center;
-        }
-        
-        /* 🟩 GARANTİLİ YÜKLENME BARI */
-        #progress-container {
-            width: 280px;
-            height: 16px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border: 2px solid #00ffcc;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-top: 15px;
-            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
-        }
-        #progress-bar {
-            width: 0%;
-            height: 100%;
-            background-color: #00ffcc;
-            box-shadow: 0 0 10px #00ffcc;
-            transition: width 0.2s ease;
-        }
-        #loading-text {
-            font-size: 1.1rem;
-            color: #a0a0b0;
-            margin-top: 12px;
-        }
+// Global input nesnesi (game.js ile paylaşılacak)
+const inputs = {
+    p1: { moveX: 0, moveZ: 0, jump: false },
+    p2: { moveX: 0, moveZ: 0, jump: false }
+};
 
-        #play-btn {
-            display: none;
-            padding: 15px 45px;
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #10101e;
-            background: #00ffcc;
-            border: none;
-            border-radius: 30px;
-            cursor: pointer;
-            box-shadow: 0 5px 15px rgba(0, 255, 204, 0.4);
-            transition: transform 0.2s, background 0.2s;
-            margin-top: 25px;
+// --- KLAVYE KONTROLLERİ ---
+const keys = {};
+
+document.addEventListener('keydown', (e) => {
+    keys[e.key] = true;
+    // P1 Zıplama (Space)
+    if (e.key === ' ') { e.preventDefault(); inputs.p1.jump = true; }
+    // P2 Zıplama (Enter)
+    if (e.key === 'Enter') { e.preventDefault(); inputs.p2.jump = true; }
+});
+
+document.addEventListener('keyup', (e) => {
+    keys[e.key] = false;
+});
+
+// Her frame'de klavye girişlerini işle (game.js'de çağrılacak)
+function updateKeyboardInputs() {
+    // P1: WASD
+    let x1 = 0, z1 = 0;
+    if (keys['w'] || keys['W']) z1 = -1;
+    if (keys['s'] || keys['S']) z1 = 1;
+    if (keys['a'] || keys['A']) x1 = -1;
+    if (keys['d'] || keys['D']) x1 = 1;
+    // Normalize et
+    const len1 = Math.sqrt(x1*x1 + z1*z1);
+    if (len1 > 0) { x1 /= len1; z1 /= len1; }
+    inputs.p1.moveX = x1;
+    inputs.p1.moveZ = z1;
+
+    // P2: Ok tuşları
+    let x2 = 0, z2 = 0;
+    if (keys['ArrowUp']) z2 = -1;
+    if (keys['ArrowDown']) z2 = 1;
+    if (keys['ArrowLeft']) x2 = -1;
+    if (keys['ArrowRight']) x2 = 1;
+    const len2 = Math.sqrt(x2*x2 + z2*z2);
+    if (len2 > 0) { x2 /= len2; z2 /= len2; }
+    inputs.p2.moveX = x2;
+    inputs.p2.moveZ = z2;
+}
+
+// --- DOKUNMATİK (MOBİL) JOYSTICK ---
+let activeTouches = {};
+
+function setupJoystick(zoneId, stickId, playerKey) {
+    const zone = document.getElementById(zoneId);
+    const stick = document.getElementById(stickId);
+    if (!zone || !stick) return;
+
+    zone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const t = e.changedTouches[0];
+        activeTouches[zoneId] = { id: t.identifier, x: t.clientX, y: t.clientY };
+    });
+
+    zone.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const tData = activeTouches[zoneId];
+        if (!tData) return;
+        for (let i = 0; i < e.touches.length; i++) {
+            if (e.touches[i].identifier === tData.id) {
+                let dx = e.touches[i].clientX - tData.x;
+                let dy = e.touches[i].clientY - tData.y;
+                const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 30);
+                const angle = Math.atan2(dy, dx);
+                dx = Math.cos(angle) * dist;
+                dy = Math.sin(angle) * dist;
+                stick.style.transform = `translate(${dx}px, ${dy}px)`;
+                const normX = dx / 30;
+                const normZ = dy / 30;
+                inputs[playerKey].moveX = normX;
+                inputs[playerKey].moveZ = normZ;
+                break;
+            }
         }
-        #play-btn:active {
-            transform: scale(0.95);
-            background: #00ccaa;
-        }
+    });
 
-        /* --- MOBİL KONTROLLER --- */
-        .joystick-zone {
-            position: absolute;
-            bottom: 40px;
-            width: 120px;
-            height: 120px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            display: none;
-            touch-action: none;
-            z-index: 5;
-        }
-        #p1-joystick-zone { left: 40px; }
-        #p2-joystick-zone { right: 40px; }
+    const endHandle = () => {
+        stick.style.transform = 'translate(0px, 0px)';
+        inputs[playerKey].moveX = 0;
+        inputs[playerKey].moveZ = 0;
+        delete activeTouches[zoneId];
+    };
+    zone.addEventListener('touchend', endHandle);
+    zone.addEventListener('touchcancel', endHandle);
+}
 
-        .joystick-stick {
-            position: absolute;
-            top: 35px;
-            left: 35px;
-            width: 50px;
-            height: 50px;
-            background: rgba(255, 255, 255, 0.7);
-            border-radius: 50%;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            pointer-events: none;
-        }
+// Butonlar için (Zıplama)
+function setupActionButton(btnId, playerKey) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        inputs[playerKey].jump = true;
+    });
+    btn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        // jump false yapmıyoruz, game.js'de sıfırlanacak
+    });
+}
 
-        .action-btn {
-            position: absolute;
-            bottom: 180px;
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            border: none;
-            font-weight: bold;
-            font-size: 1.1rem;
-            color: #fff;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
-            z-index: 5;
-            touch-action: none;
-        }
-        #p1-action-btn {
-            left: 65px;
-            background: linear-gradient(135deg, #0055ff, #0033aa);
-        }
-        #p2-action-btn {
-            right: 65px;
-            background: linear-gradient(135deg, #ff2222, #aa0000);
-        }
-    </style>
-</head>
-<body>
-
-    <div id="menu-container">
-        <h1>Robot Guys Co-Op</h1>
-        <div id="progress-container">
-            <div id="progress-bar"></div>
-        </div>
-        <div id="loading-text">Bağlantı kuruluyor... (%0)</div>
-        <button id="play-btn">OYNA</button>
-    </div>
-
-    <div id="p1-joystick-zone" class="joystick-zone">
-        <div id="p1-joystick-stick" class="joystick-stick"></div>
-    </div>
-    <button id="p1-action-btn" class="action-btn">Zıpla</button>
-
-    <div id="p2-joystick-zone" class="joystick-zone">
-        <div id="p2-joystick-stick" class="joystick-stick"></div>
-    </div>
-    <button id="p2-action-btn" class="action-btn">Zıpla</button>
-
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/OBJLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/cannon@0.0.6/build/cannon.min.js"></script>
-
-    <script src="js/game.js"></script>
-</body>
-</html>
+// Tüm kontrolleri başlat
+function initControls() {
+    setupJoystick('p1-joystick-zone', 'p1-joystick-stick', 'p1');
+    setupJoystick('p2-joystick-zone', 'p2-joystick-stick', 'p2');
+    setupActionButton('p1-action-btn', 'p1');
+    setupActionButton('p2-action-btn', 'p2');
+}
