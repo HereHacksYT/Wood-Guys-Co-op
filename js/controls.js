@@ -12,26 +12,31 @@ const keys = {};
 
 document.addEventListener('keydown', (e) => {
     keys[e.key] = true;
-    if (e.key === ' ') { e.preventDefault(); inputs.p1.jump = true; }
-    if (e.key === 'Enter') { e.preventDefault(); inputs.p2.jump = true; }
+    // Zıplama KALDIRILDI
 });
 document.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
 function updateKeyboardInputs() {
-    // P1: A/D (sağ-sol)
-    let x1 = 0;
+    // P1: WASD - W/Z ileri, S/Z geri, A/X sol, D/X sağ
+    let x1 = 0, z1 = 0;
+    if (keys['w'] || keys['W']) z1 = -1;
+    if (keys['s'] || keys['S']) z1 = 1;
     if (keys['a'] || keys['A']) x1 = -1;
     if (keys['d'] || keys['D']) x1 = 1;
     inputs.p1.moveX = x1;
+    inputs.p1.moveZ = z1;
 
-    // P2: Ok tuşları (sağ-sol)
-    let x2 = 0;
+    // P2: Ok tuşları - Yukarı/Z ileri, Aşağı/Z geri, Sol/X sol, Sağ/X sağ
+    let x2 = 0, z2 = 0;
+    if (keys['ArrowUp']) z2 = -1;
+    if (keys['ArrowDown']) z2 = 1;
     if (keys['ArrowLeft']) x2 = -1;
     if (keys['ArrowRight']) x2 = 1;
     inputs.p2.moveX = x2;
+    inputs.p2.moveZ = z2;
 }
 
-// --- DOKUNMATİK JOYSTICK ---
+// --- DOKUNMATİK JOYSTICK (Sadece X ve Z) ---
 let activeTouches = {};
 
 function setupJoystick(zoneId, stickId, playerKey) {
@@ -58,8 +63,8 @@ function setupJoystick(zoneId, stickId, playerKey) {
                 dx = Math.cos(angle) * dist;
                 dy = Math.sin(angle) * dist;
                 stick.style.transform = `translate(${dx}px, ${dy}px)`;
-                // Sadece X eksenini kullan (sağ-sol)
                 inputs[playerKey].moveX = dx / 30;
+                inputs[playerKey].moveZ = dy / 30; // Y ekseni Z olarak kullanılıyor
                 break;
             }
         }
@@ -68,6 +73,7 @@ function setupJoystick(zoneId, stickId, playerKey) {
     const endHandle = () => {
         stick.style.transform = 'translate(0px, 0px)';
         inputs[playerKey].moveX = 0;
+        inputs[playerKey].moveZ = 0;
         delete activeTouches[zoneId];
     };
     zone.addEventListener('touchend', endHandle);
@@ -75,11 +81,12 @@ function setupJoystick(zoneId, stickId, playerKey) {
 }
 
 function setupActionButton(btnId, playerKey) {
+    // Zıplama butonu pasif
     const btn = document.getElementById(btnId);
     if (!btn) return;
     btn.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        inputs[playerKey].jump = true;
+        // Hiçbir şey yapma
     });
 }
 
