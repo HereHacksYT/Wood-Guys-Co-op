@@ -1,5 +1,5 @@
 // ==========================================
-// 🎮 ROBOT GUYS CO-OP - KONTROLLER (TAM)
+// 🎮 ROBOT GUYS CO-OP - KONTROLLER
 // ==========================================
 
 const inputs = {
@@ -18,27 +18,17 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
 function updateKeyboardInputs() {
-    // P1: WASD
-    let x1 = 0, z1 = 0;
-    if (keys['w'] || keys['W']) z1 = -1;
-    if (keys['s'] || keys['S']) z1 = 1;
+    // P1: A/D (sağ-sol)
+    let x1 = 0;
     if (keys['a'] || keys['A']) x1 = -1;
     if (keys['d'] || keys['D']) x1 = 1;
-    const len1 = Math.sqrt(x1*x1 + z1*z1);
-    if (len1 > 0) { x1 /= len1; z1 /= len1; }
     inputs.p1.moveX = x1;
-    inputs.p1.moveZ = z1;
 
-    // P2: Ok tuşları
-    let x2 = 0, z2 = 0;
-    if (keys['ArrowUp']) z2 = -1;
-    if (keys['ArrowDown']) z2 = 1;
+    // P2: Ok tuşları (sağ-sol)
+    let x2 = 0;
     if (keys['ArrowLeft']) x2 = -1;
     if (keys['ArrowRight']) x2 = 1;
-    const len2 = Math.sqrt(x2*x2 + z2*z2);
-    if (len2 > 0) { x2 /= len2; z2 /= len2; }
     inputs.p2.moveX = x2;
-    inputs.p2.moveZ = z2;
 }
 
 // --- DOKUNMATİK JOYSTICK ---
@@ -68,8 +58,8 @@ function setupJoystick(zoneId, stickId, playerKey) {
                 dx = Math.cos(angle) * dist;
                 dy = Math.sin(angle) * dist;
                 stick.style.transform = `translate(${dx}px, ${dy}px)`;
+                // Sadece X eksenini kullan (sağ-sol)
                 inputs[playerKey].moveX = dx / 30;
-                inputs[playerKey].moveZ = dy / 30;
                 break;
             }
         }
@@ -78,7 +68,6 @@ function setupJoystick(zoneId, stickId, playerKey) {
     const endHandle = () => {
         stick.style.transform = 'translate(0px, 0px)';
         inputs[playerKey].moveX = 0;
-        inputs[playerKey].moveZ = 0;
         delete activeTouches[zoneId];
     };
     zone.addEventListener('touchend', endHandle);
