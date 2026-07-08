@@ -1,5 +1,5 @@
 // ==========================================
-// ⚙️ ROBOT GUYS CO-OP - FİZİK MOTORU (TAM)
+// ⚙️ ROBOT GUYS CO-OP - FİZİK MOTORU
 // ==========================================
 
 let world;
@@ -14,7 +14,7 @@ function initPhysics() {
     const groundMat = new CANNON.Material('groundMat');
 
     const contactMat = new CANNON.ContactMaterial(playerMat, groundMat, {
-        friction: 0.3,
+        friction: 0.5,
         restitution: 0.0
     });
     world.addContactMaterial(contactMat);
@@ -29,11 +29,19 @@ function initPhysics() {
 
 function createPhysicsPlayer(x, y, z) {
     const mat = new CANNON.Material('playerMat');
-    const body = new CANNON.Body({ mass: 300, material: mat });
-    body.addShape(new CANNON.Box(new CANNON.Vec3(1.5, 2.5, 1.5)));
+    const body = new CANNON.Body({ mass: 100, material: mat });
+    
+    // Ana gövde (kutu)
+    body.addShape(new CANNON.Box(new CANNON.Vec3(0.6, 1.2, 0.6)));
+    
+    // Tekerlek (küre - ayak görevi)
+    const wheelShape = new CANNON.Sphere(0.5);
+    body.addShape(wheelShape, new CANNON.Vec3(0, -1.0, 0));
+    
     body.position.set(x, y, z);
     body.fixedRotation = true;
     body.linearDamping = 0.1;
+    body.angularDamping = 0.1;
     world.addBody(body);
     return body;
 }
